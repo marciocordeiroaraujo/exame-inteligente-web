@@ -492,12 +492,33 @@ def criar_conta(nome, usuario, senha):
         "nome": nome.strip(),
         "usuario": usuario.strip(),
         "senha_hash": [salt, digest],
+        "onboarding_pendente": bool(not nome.strip()),
         "criado_em": datetime.now().strftime("%d/%m/%Y %H:%M")
     })
     salvar_usuarios(usuarios)
     if primeira:
         migrar_dados_primeira_conta(usuario.strip())
     return usuario.strip()
+
+def conta_precisa_onboarding():
+    conta = conta_atual()
+    return bool(conta and conta.get("onboarding_pendente"))
+
+def concluir_onboarding(nome, escola):
+    conta = conta_atual()
+    if conta:
+        usuarios = carregar_usuarios()
+        alvo = str(conta.get("usuario", "")).lower()
+        for u in usuarios:
+            if str(u.get("usuario", "")).lower() == alvo:
+                u["nome"] = (nome or "").strip()
+                u["onboarding_pendente"] = False
+                break
+        salvar_usuarios(usuarios)
+    config = carregar_config()
+    config["professor"] = (nome or "").strip()
+    config["escola"] = (escola or "").strip()
+    salvar_config(config)
 
 def garantir_usuario_teste():
     if not usuario_existe("_teste_"):
@@ -948,6 +969,8 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     }
     div.stElementContainer:has(.cal-widgets-marker) ~ div.stElementContainer [data-testid="stButton"] button {
         padding: .1rem 0 !important; min-height: 1.7rem; font-size: .72rem; border-radius: 8px;
+        white-space: nowrap !important; overflow: hidden; font-variant-numeric: tabular-nums;
+        letter-spacing: 0;
     }
     /* Grade Semanal: 2 dias por linha em telas pequenas */
     div[class*="st-key-grade_dias"] div[data-testid="stColumn"] {
@@ -961,6 +984,31 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     .cal-table th {font-size: .6rem; padding: 2px;}
     .cal-table td {padding: 5px 0 !important; font-size: .75rem; border-radius: 6px;}
     [data-testid="stDialog"] {max-width: 94vw !important;}
+}
+
+/* Sidebar no celular: menu sempre visivel no topo (nao some e nao vira
+   gaveta sem botao de voltar). O Streamlit usa breakpoint md = 768px. */
+@media (max-width: 768px) {
+    div[data-testid="stAppViewContainer"] {
+        display: block !important; position: relative !important;
+        height: auto !important; overflow: visible !important;
+    }
+    section[data-testid="stMain"] {
+        position: relative !important; top: auto !important; left: auto !important;
+        right: auto !important; height: auto !important; overflow: visible !important;
+    }
+    section[data-testid="stSidebar"] {
+        position: relative !important; transform: none !important;
+        width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+        height: auto !important; max-height: none !important; flex: none !important;
+        box-shadow: none !important; z-index: 5 !important;
+        border-right: none !important; border-radius: 0 0 14px 14px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        height: auto !important; max-height: 42vh !important; overflow-y: auto !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    header[data-testid="stHeader"] { display: none !important; }
 }
 
 @media (max-width: 480px) {
@@ -1646,8 +1694,6 @@ def tela_login():
                     st.error("Usuario ou senha incorretos.")
         else:
             with st.form("form_cadastro"):
-                cad_nome = st.text_input("Nome completo", key="cad_nome",
-                                         placeholder="Como voce quer ser chamado")
                 cad_user = st.text_input("Nome de usuario", key="cad_user",
                                          placeholder="ex.: maria.silva")
                 cad_senha = st.text_input("Crie uma senha", type="password",
@@ -1657,10 +1703,9 @@ def tela_login():
                 criar = st.form_submit_button("Criar minha conta", type="primary",
                                               use_container_width=True)
             if criar:
-                nome_c = cad_nome.strip()
                 user_c = cad_user.strip()
-                if not nome_c or not user_c:
-                    st.error("Preencha o nome completo e o nome de usuario.")
+                if not user_c:
+                    st.error("Preencha o nome de usuario.")
                 elif len(cad_senha) < 6:
                     st.error("A senha precisa ter pelo menos 6 caracteres.")
                 elif cad_senha != cad_confirmar:
@@ -1668,9 +1713,9 @@ def tela_login():
                 elif usuario_existe(user_c):
                     st.error("Ja existe uma conta com esse nome de usuario.")
                 else:
-                    criar_conta(nome_c, user_c, cad_senha)
+                    criar_conta("", user_c, cad_senha)
                     st.session_state["usuario"] = user_c
-                    st.session_state["bem_vindo"] = nome_c
+                    st.session_state["bem_vindo"] = True
                     st.query_params.clear()
                     st.rerun()
 
@@ -2024,7 +2069,7 @@ def tela_grade_semanal():
     with c_add:
         with st.container(key="card_grade_add"):
             st.markdown("**Adicionar aula a grade**")
-            l1, l2, l3 = st.columns([1, 1, 1.3])
+            l1, l2 = st.columns([1, 1])
             nova_turma = l1.text_input("Turma", placeholder="Ex: 7o A", key="grade_turma")
             opcoes_disc = DISCIPLINAS_COMUNS + ["Outra disciplina..."]
             disc_sel = l2.selectbox("Disciplina", opcoes_disc,
@@ -2034,7 +2079,7 @@ def tela_grade_semanal():
                 nova_disc = l2.text_input("Digite a disciplina:", key="grade_disc_outra")
             else:
                 nova_disc = disc_sel
-            dia = l3.selectbox("Dia da semana", DIAS_UTEIS)
+            dia = st.radio("Dia da semana", DIAS_UTEIS, horizontal=True)
             aulas_sel = st.multiselect(
                 "Selecione as aulas", [f"{i}a Aula" for i in range(1, max_aulas + 1)],
                 key="grade_aulas")
@@ -3173,7 +3218,36 @@ def tela_configuracoes():
             st.error("Por favor, verifique se os campos numericos estao corretos.")
 
 # =====================================================================
-# 21. MAIN
+# 21. TELA DE BOAS-VINDAS (primeiro acesso)
+# =====================================================================
+def tela_onboarding():
+    injetar_css(carregar_config())
+    injetar_css_login()
+    with st.container(key="login_card"):
+        st.markdown(
+            '<div class="login-logo">'
+            '<div class="login-monogram">EI</div>'
+            '<div class="login-titulo">Boas-vindas!<small>Complete seu perfil</small></div>'
+            '</div>'
+            '<div class="login-sub">Sua conta foi criada. Conte para nos quem voce e '
+            'para personalizar suas provas e relatorios.</div>',
+            unsafe_allow_html=True)
+        with st.form("form_onboarding"):
+            ob_nome = st.text_input("Seu nome", key="ob_nome",
+                                    placeholder="Como voce quer ser chamado")
+            ob_escola = st.text_input("Nome da escola", key="ob_escola",
+                                      placeholder="Ex.: Escola Municipal Paulo Freire")
+            confirmar = st.form_submit_button("Comecar a usar", type="primary",
+                                              use_container_width=True)
+        if confirmar:
+            if not ob_nome.strip():
+                st.error("Informe o seu nome para continuar.")
+            else:
+                concluir_onboarding(ob_nome, ob_escola)
+                st.rerun()
+
+# =====================================================================
+# 22. MAIN
 # =====================================================================
 def main():
     config = carregar_config()
@@ -3187,8 +3261,11 @@ def main():
             return
 
     if st.session_state.get("bem_vindo"):
-        nome_bem = st.session_state.pop("bem_vindo")
-        st.success(f"Conta criada com sucesso! Bem-vindo(a), {nome_bem}.")
+        st.session_state.pop("bem_vindo")
+
+    if conta_precisa_onboarding():
+        tela_onboarding()
+        return
 
     montar_sidebar()
     pagina = pagina_atual()
