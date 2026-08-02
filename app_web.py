@@ -1466,19 +1466,37 @@ def _html_js_movel(usuario=None, token=None):
     fab.style.display = show ? 'flex' : 'none';
   }
 
-  // --- gesto: arrastar da borda esquerda abre seguindo o dedo; empurrar p/ esq fecha ---
-  var EDGE = 30;
+  // --- gesto: arrastar a partir de qualquer lugar abre; empurrar p/ esq fecha ---
   var drag = null;
 
-  // Bloqueia a navegacao de voltar por gesto do navegador (overscroll + touch-action)
+  // Bloqueia a navegacao de voltar por gesto (overscroll + touch-action),
+  // no desktop impede recolher a barra e desenha a "alca" de arrastar no celular.
   function injectStyles() {
     if (d.getElementById('ei-styles')) return;
     var s = d.createElement('style');
     s.id = 'ei-styles';
     s.textContent =
       'html, body { overscroll-behavior-x: contain !important; }' +
-      '#ei-edge { position: fixed; left: 0; top: 0; bottom: 0; width: ' + EDGE + 'px;' +
-      ' z-index: 2147483646; touch-action: pan-y; background: transparent; }';
+      '@media (min-width: 769px) {' +
+      ' [data-testid="stSidebarCollapseButton"], [data-testid="stExpandSidebarButton"] { display: none !important; }' +
+      ' #ei-edge, #ei-mobile-menu { display: none !important; }' +
+      '}' +
+      '#ei-edge { position: fixed; left: 0; top: 0; bottom: 0; width: 30px;' +
+      ' z-index: 2147483646; pointer-events: none;' +
+      ' display: flex; align-items: center; justify-content: center;' +
+      ' -webkit-tap-highlight-color: transparent; }' +
+      '#ei-edge::before { content: ""; width: 6px; height: 84px; border-radius: 6px;' +
+      ' background: rgba(120,120,120,0.45); box-shadow: 0 0 0 5px rgba(120,120,120,0.10);' +
+      ' animation: ei-edge-pulse 1.9s ease-in-out infinite; }' +
+      '#ei-edge::after { content: "Deslize para abrir o menu"; position: absolute; left: 36px; top: 50%;' +
+      ' transform: translateY(-50%); white-space: nowrap; font-size: .82rem; font-weight: 700;' +
+      ' color: #fff; background: rgba(30,30,40,0.72); padding: 8px 13px; border-radius: 10px;' +
+      ' box-shadow: 0 4px 14px rgba(0,0,0,0.25); animation: ei-edge-tip 6s ease forwards;' +
+      ' pointer-events: none; }' +
+      '@keyframes ei-edge-pulse { 0%, 100% { opacity: .5; transform: translateX(0); }' +
+      ' 50% { opacity: 1; transform: translateX(2px); } }' +
+      '@keyframes ei-edge-tip { 0% { opacity: 0; } 10% { opacity: 1; } 78% { opacity: 1; }' +
+      ' 100% { opacity: 0; } }';
     (d.head || d.documentElement).appendChild(s);
   }
 
@@ -1492,7 +1510,7 @@ def _html_js_movel(usuario=None, token=None):
   }
   function syncOverlay() {
     var o = el('#ei-edge');
-    if (o) o.style.display = (isMobile() && !isOpen()) ? 'block' : 'none';
+    if (o) o.style.display = (isMobile() && !isOpen()) ? 'flex' : 'none';
     syncFab();
   }
 
@@ -1514,6 +1532,15 @@ def _html_js_movel(usuario=None, token=None):
     return !!e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
   }
 
+  // Abrir do gesto em qualquer lugar, exceto dentro de areas de rolagem
+  // horizontal que ainda tenham conteudo para tras (o gesto rola o conteudo).
+  function canOpenHere(e) {
+    if (!e.target || !e.target.closest) return true;
+    var sc = e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
+    if (!sc) return true;
+    return sc.scrollLeft <= 2;
+  }
+
   function onStart(e) {
     if (!isMobile() || e.touches.length !== 1) return;
     var t = e.touches[0];
@@ -1529,7 +1556,7 @@ def _html_js_movel(usuario=None, token=None):
     if (!drag.mode) {
       var horiz = Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15;
       if (!horiz) return;
-      if (!open && drag.sx <= EDGE) drag.mode = 'open';
+      if (!open && canOpenHere(e)) drag.mode = 'open';
       else if (open && !inXScroll(e)) drag.mode = 'close';
       else { drag = null; return; }
     }
@@ -1590,7 +1617,7 @@ def _html_js_movel(usuario=None, token=None):
       var b = ev.target.closest('button');
       if (!b) return;
       if (b.getAttribute('data-testid') === 'stSidebarCollapseButton') return;
-      setTimeout(function() { if (isOpen()) closeSb(); }, 450);
+      setTimeout(function() { if (isMobile() && isOpen()) closeSb(); }, 450);
     });
   }
 
@@ -1618,15 +1645,35 @@ def _html_js_movel(usuario=None, token=None):
   watchNav();
   syncCookie();
 
+  // No celular a barra abre sozinha assim que o app carrega (somente 1a vez).
+  var didInitOpen = false;
+  function forceInitialOpen() {
+    if (didInitOpen || !isMobile()) return;
+    var s = side();
+    if (!s) return;
+    if (isOpen()) { didInitOpen = true; return; }
+    var b = sbBtn('stExpandSidebarButton');
+    if (b) { b.click(); didInitOpen = true; }
+  }
+  // No desktop a barra e sempre visivel: se por qualquer motivo fechou, reabre.
+  function enforceDesktop() {
+    if (isMobile()) return;
+    if (!side()) return;
+    if (!isOpen()) { var b = sbBtn('stExpandSidebarButton'); if (b) b.click(); }
+  }
+  W.addEventListener('resize', function() { forceInitialOpen(); enforceDesktop(); watchNav(); syncOverlay(); });
+
   W.__ei = {
     isOpen: isOpen, openSb: openSb, closeSb: closeSb, toggleSb: toggleSb,
     sbWidth: sbWidth, isMobile: isMobile, syncCookie: syncCookie
   };
 
-  var obs = new MutationObserver(function() { ensureFab(); watchNav(); ensureOverlay(); syncOverlay(); });
+  var obs = new MutationObserver(function() {
+    ensureFab(); watchNav(); ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay();
+  });
   if (d.body) obs.observe(d.body, { childList: true, subtree: true });
-  setTimeout(function() { ensureOverlay(); syncOverlay(); }, 400);
-  setInterval(function() { ensureOverlay(); syncOverlay(); }, 500);
+  setTimeout(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); }, 400);
+  setInterval(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); }, 500);
 })();
 """
 
