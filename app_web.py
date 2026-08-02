@@ -1043,23 +1043,19 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     [data-testid="stDialog"] {max-width: 94vw !important;}
 }
 
-/* Botao flutuante do menu (criado pelo JS injetado) - so em telas pequenas.
-   A sidebar nativa volta a ser a gaveta lateral do Streamlit. */
+/* Botao flutuante do menu (criado pelo JS injetado).
+   Visibilidade controlada pelo JS: no celular fica sempre visivel;
+   no desktop aparece so quando a sidebar esta oculta (para poder reabri-la). */
 #ei-mobile-menu {
-    display: none !important;
+    position: fixed; right: 14px; bottom: 14px; z-index: 99999;
+    width: 52px; height: 52px; border-radius: 16px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
+    color: @@BTN@@ !important; font-size: 24px; line-height: 1;
+    align-items: center; justify-content: center;
+    box-shadow: 0 8px 22px @@CORP_SHADOW@@;
+    -webkit-tap-highlight-color: transparent;
 }
-@media (max-width: 768px) {
-    #ei-mobile-menu {
-        display: flex !important;
-        position: fixed; right: 14px; bottom: 14px; z-index: 99999;
-        width: 52px; height: 52px; border-radius: 16px; border: none; cursor: pointer;
-        background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
-        color: @@BTN@@ !important; font-size: 24px; line-height: 1;
-        align-items: center; justify-content: center;
-        box-shadow: 0 8px 22px @@CORP_SHADOW@@;
-    }
-    #ei-mobile-menu:active { transform: scale(.94); }
-}
+#ei-mobile-menu:active { transform: scale(.94); }
 
 @media (max-width: 480px) {
     div[class*="st-key-login_card"] {padding: 1.3rem 1.1rem !important;}
@@ -1419,29 +1415,40 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
 #     Roda dentro de um iframe do mesmo dominio e controla o pai.
 # =====================================================================
 def _html_js_movel(usuario=None, token=None):
-    payload = ""
+    import json as _json
+
+    payload = None
     if usuario and token:
-        import json as _json
-        payload = _json.dumps({"usuario": usuario, "token": token})
+        payload = {"usuario": usuario, "token": token}
 
-    return f"""<script>
-(function(){{
-  var W = window.parent;
-  var d = W.document;
+    _BODY = r"""(function(){
+  var d = document;
+  var W = window;
   var COOKIE = "ei_usuario";
-  if (W.__eiReady) return;
-  W.__eiReady = true;
 
-  function isMobile() {{ return W.matchMedia("(max-width: 768px)").matches; }}
-  function el(sel) {{ return d.querySelector(sel); }}
-  function isOpen() {{ return !!el('[data-testid="stSidebarCollapseButton"]'); }}
-  function openSb() {{ var b = el('[data-testid="stExpandSidebarButton"]'); if (b) b.click(); }}
-  function closeSb() {{ var b = el('[data-testid="stSidebarCollapseButton"]'); if (b) b.click(); }}
-  function toggleSb() {{ isOpen() ? closeSb() : openSb(); }}
+  function isMobile() { return matchMedia("(max-width: 768px)").matches; }
+  function el(sel) { return d.querySelector(sel); }
+  function side() { return el('[data-testid="stSidebar"]'); }
 
-  // --- menu flutuante (so quando ha sidebar com botoes) ---
-  function ensureFab() {{
-    if (!isMobile()) return;
+  // Aberta = transform 'none' (o botao de recolher permanece no DOM mesmo recolhido).
+  function isOpen() {
+    var s = side();
+    if (!s) return false;
+    var t = getComputedStyle(s).transform || '';
+    if (t === 'none' || t === '') return true;
+    var m = t.match(/matrix\(([-\d.,\s]+)\)/);
+    if (!m) return true;
+    var tx = parseFloat(m[1].split(',')[4]) || 0;
+    return tx > -1;
+  }
+  // Streamlit expoe um <div> wrapper; o clique efetivo e no <button> interno.
+  function sbBtn(t) { var w = el('[data-testid="' + t + '"]'); if (!w) return null; return w.querySelector('button') || w; }
+  function openSb() { var b = sbBtn('stExpandSidebarButton'); if (b) b.click(); }
+  function closeSb() { var b = sbBtn('stSidebarCollapseButton'); if (b) b.click(); }
+  function toggleSb() { isOpen() ? closeSb() : openSb(); }
+
+  // --- menu flutuante (sempre que a sidebar estiver oculta; no celular, sempre) ---
+  function ensureFab() {
     var side = el('[data-testid="stSidebar"]');
     if (!side || !side.querySelector('button')) return;
     if (el('#ei-mobile-menu')) return;
@@ -1449,167 +1456,194 @@ def _html_js_movel(usuario=None, token=None):
     fab.id = 'ei-mobile-menu';
     fab.innerHTML = '&#9776;';
     fab.setAttribute('aria-label', 'Abrir menu');
-    fab.addEventListener('click', function(ev) {{ ev.stopPropagation(); ev.preventDefault(); toggleSb(); }});
+    fab.addEventListener('click', function(ev) { ev.stopPropagation(); ev.preventDefault(); toggleSb(); });
     d.body.appendChild(fab);
-  }}
+  }
+  function syncFab() {
+    var fab = el('#ei-mobile-menu');
+    if (!fab) return;
+    var show = isMobile() || !isOpen();
+    fab.style.display = show ? 'flex' : 'none';
+  }
 
   // --- gesto: arrastar da borda esquerda abre seguindo o dedo; empurrar p/ esq fecha ---
   var EDGE = 30;
   var drag = null;
 
-  function side() {{ return el('[data-testid="stSidebar"]'); }}
-
   // Bloqueia a navegacao de voltar por gesto do navegador (overscroll + touch-action)
-  function injectStyles() {{
+  function injectStyles() {
     if (d.getElementById('ei-styles')) return;
     var s = d.createElement('style');
     s.id = 'ei-styles';
     s.textContent =
-      'html, body {{ overscroll-behavior-x: contain !important; }}' +
-      '#ei-edge {{ position: fixed; left: 0; top: 0; bottom: 0; width: ' + EDGE + 'px;' +
-      ' z-index: 2147483646; touch-action: pan-y; background: transparent; }}';
+      'html, body { overscroll-behavior-x: contain !important; }' +
+      '#ei-edge { position: fixed; left: 0; top: 0; bottom: 0; width: ' + EDGE + 'px;' +
+      ' z-index: 2147483646; touch-action: pan-y; background: transparent; }';
     (d.head || d.documentElement).appendChild(s);
-  }}
+  }
 
-  function ensureOverlay() {{
+  function ensureOverlay() {
     if (!isMobile() || el('#ei-edge')) return;
     if (!side()) return;
     var o = d.createElement('div');
     o.id = 'ei-edge';
     d.body.appendChild(o);
     syncOverlay();
-  }}
-  function syncOverlay() {{
+  }
+  function syncOverlay() {
     var o = el('#ei-edge');
     if (o) o.style.display = (isMobile() && !isOpen()) ? 'block' : 'none';
-  }}
+    syncFab();
+  }
 
   // largura real da sidebar (le o translateX do estado recolhido do Streamlit)
-  function sbWidth() {{
+  function sbWidth() {
     var s = side();
     if (!s) return 300;
     var t = getComputedStyle(s).transform || '';
-    var parts = t.split(/[,() ]+/);
-    for (var i = parts.length - 1; i >= 0; i--) {{
-      var n = parseFloat(parts[i]);
-      if (!isNaN(n) && n !== 0) return Math.abs(n);
-    }}
+    var m = t.match(/matrix\(([-\d.,\s]+)\)/);
+    if (m) {
+      var tx = Math.abs(parseFloat(m[1].split(',')[4]) || 0);
+      if (tx > 5) return tx;
+    }
     return s.offsetWidth || 300;
-  }}
+  }
 
-  function inXScroll(e) {{
+  function inXScroll(e) {
     if (!e.target || !e.target.closest) return false;
     return !!e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
-  }}
+  }
 
-  function onStart(e) {{
+  function onStart(e) {
     if (!isMobile() || e.touches.length !== 1) return;
     var t = e.touches[0];
-    drag = {{ sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null }};
-  }}
-  function onMove(e) {{
+    drag = { sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null };
+  }
+  function onMove(e) {
     if (!drag) return;
     var t = e.touches[0];
     var dx = t.clientX - drag.sx;
     var dy = t.clientY - drag.sy;
     drag.dx = dx; drag.dy = dy;
     var open = isOpen();
-    if (!drag.mode) {{
+    if (!drag.mode) {
       var horiz = Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15;
       if (!horiz) return;
       if (!open && drag.sx <= EDGE) drag.mode = 'open';
       else if (open && !inXScroll(e)) drag.mode = 'close';
-      else {{ drag = null; return; }}
-    }}
+      else { drag = null; return; }
+    }
     e.preventDefault();
     var s = side(); if (!s) return;
     var w = sbWidth();
     s.style.transition = 'none';
-    if (drag.mode === 'open') {{
+    if (drag.mode === 'open') {
       // sidebar recolhida: revela seguindo o dedo (largura real + transform)
       s.style.width = w + 'px'; s.style.minWidth = w + 'px'; s.style.maxWidth = w + 'px';
       s.style.transform = 'translateX(' + Math.max(-w, -w + drag.dx) + 'px)';
-    }} else {{
+    } else {
       s.style.transform = 'translateX(' + Math.max(-w, drag.dx) + 'px)';
-    }}
-  }}
-  function onEnd(e) {{
+    }
+  }
+  function onEnd(e) {
     if (!drag) return;
     var was = drag; drag = null;
     var s = side(); if (!s) return;
     var w = sbWidth();
     var lim = Math.max(60, w * 0.25);
-    if (was.mode === 'open') {{
+    if (was.mode === 'open') {
       if (was.dx > lim) commitOpen(s, w); else reset(s);
-    }} else if (was.mode === 'close') {{
+    } else if (was.mode === 'close') {
       if (was.dx < -lim) commitClose(s, w); else reset(s);
-    }}
+    }
     syncOverlay();
-  }}
-  function commitOpen(s, w) {{
+  }
+  function commitOpen(s, w) {
     s.style.transition = 'none';
     s.style.width = w + 'px'; s.style.minWidth = w + 'px'; s.style.maxWidth = w + 'px';
     s.style.transform = 'translateX(0)';
     openSb();
-    setTimeout(function() {{ reset(s); syncOverlay(); }}, 400);
-  }}
-  function commitClose(s, w) {{
+    setTimeout(function() { reset(s); syncOverlay(); }, 400);
+  }
+  function commitClose(s, w) {
     s.style.transition = 'none';
     s.style.transform = 'translateX(-' + w + 'px)';
     closeSb();
-    setTimeout(function() {{ reset(s); syncOverlay(); }}, 400);
-  }}
-  function reset(s) {{
+    setTimeout(function() { reset(s); syncOverlay(); }, 400);
+  }
+  function reset(s) {
     s.style.transition = ''; s.style.width = ''; s.style.minWidth = ''; s.style.maxWidth = ''; s.style.transform = '';
-  }}
+  }
 
-  d.addEventListener('touchstart', onStart, {{passive: true}});
-  d.addEventListener('touchmove', onMove, {{passive: false}});
-  d.addEventListener('touchend', onEnd, {{passive: true}});
-  d.addEventListener('touchcancel', onEnd, {{passive: true}});
+  d.addEventListener('touchstart', onStart, {passive: true});
+  d.addEventListener('touchmove', onMove, {passive: false});
+  d.addEventListener('touchend', onEnd, {passive: true});
+  d.addEventListener('touchcancel', onEnd, {passive: true});
 
-  // --- auto-ocultar apos navegar pelo menu ---
-  function watchNav() {{
+  // --- auto-ocultar apos navegar pelo menu (so no celular) ---
+  function watchNav() {
+    if (!isMobile()) return;
     var side = el('[data-testid="stSidebar"]');
     if (!side || side.__eiWatch) return;
     side.__eiWatch = true;
-    side.addEventListener('click', function(ev) {{
+    side.addEventListener('click', function(ev) {
       var b = ev.target.closest('button');
       if (!b) return;
       if (b.getAttribute('data-testid') === 'stSidebarCollapseButton') return;
-      setTimeout(function() {{ if (isOpen()) closeSb(); }}, 450);
-    }});
-  }}
+      setTimeout(function() { if (isOpen()) closeSb(); }, 450);
+    });
+  }
 
   // --- cookie de login (lembrar da conta) ---
-  function setCookie(name, value) {{
+  function setCookie(name, value) {
     d.cookie = name + "=" + encodeURIComponent(value) + "; path=/; max-age=2592000; SameSite=Lax";
-  }}
-  function clearCookie(name) {{
+  }
+  function clearCookie(name) {
     d.cookie = name + "=; path=/; max-age=0";
-  }}
-  function getCookie(name) {{
+  }
+  function getCookie(name) {
     var m = d.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
     return m ? decodeURIComponent(m[1]) : "";
-  }}
-  function syncCookie() {{
-    var p = {payload or "null"};
-    if (p && p.usuario) {{ setCookie(COOKIE, p.usuario + "|" + p.token); }}
-    else {{ if (getCookie(COOKIE)) clearCookie(COOKIE); }}
-  }}
+  }
+  function syncCookie() {
+    var p = window.__EI_PAYLOAD;
+    if (p && p.usuario) { setCookie(COOKIE, p.usuario + "|" + p.token); }
+    else { if (getCookie(COOKIE)) clearCookie(COOKIE); }
+  }
+  W.__eiSyncCookie = syncCookie;
 
   injectStyles();
   ensureFab();
+  syncFab();
   watchNav();
   syncCookie();
 
-  // mantem vivo apos reruns do Streamlit
-  var obs = new MutationObserver(function() {{ ensureFab(); watchNav(); ensureOverlay(); syncOverlay(); }});
-  obs.observe(d.body, {{ childList: true, subtree: true }});
-  setTimeout(function() {{ ensureOverlay(); syncOverlay(); }}, 400);
-  setInterval(function() {{ ensureOverlay(); syncOverlay(); }}, 500);
+  W.__ei = {
+    isOpen: isOpen, openSb: openSb, closeSb: closeSb, toggleSb: toggleSb,
+    sbWidth: sbWidth, isMobile: isMobile, syncCookie: syncCookie
+  };
+
+  var obs = new MutationObserver(function() { ensureFab(); watchNav(); ensureOverlay(); syncOverlay(); });
+  if (d.body) obs.observe(d.body, { childList: true, subtree: true });
+  setTimeout(function() { ensureOverlay(); syncOverlay(); }, 400);
+  setInterval(function() { ensureOverlay(); syncOverlay(); }, 500);
+})();
+"""
+
+    return f"""<script>
+(function(){{
+  var W = window.parent;
+  var d = W.document;
+  if (!d || !d.documentElement) return;
+  try {{ W.__EI_PAYLOAD = {_json.dumps(payload)}; if (W.__eiSyncCookie) W.__eiSyncCookie(); }} catch (e) {{}}
+  if (d.getElementById('ei-inj')) return;
+  var s = d.createElement('script');
+  s.id = 'ei-inj';
+  s.textContent = 'window.__EI_PAYLOAD = (' + {_json.dumps(payload)} + ');\\n' + {_json.dumps(_BODY)};
+  (d.head || d.documentElement).appendChild(s);
 }})();
 </script>"""
+
 
 def injetar_js_movel(usuario=None, token=None):
     st.iframe(_html_js_movel(usuario, token), width=1, height=1)
