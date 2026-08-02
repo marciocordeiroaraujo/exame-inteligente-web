@@ -1480,6 +1480,8 @@ def _html_js_movel(usuario=None, token=None):
       '@media (min-width: 769px) {' +
       ' [data-testid="stSidebarCollapseButton"], [data-testid="stExpandSidebarButton"] { display: none !important; }' +
       ' #ei-edge, #ei-mobile-menu { display: none !important; }' +
+      ' section[data-testid="stSidebar"] { transform: none !important;' +
+      ' width: 300px !important; min-width: 300px !important; max-width: 300px !important; }' +
       '}' +
       '#ei-edge { position: fixed; left: 0; top: 0; bottom: 0; width: 30px;' +
       ' z-index: 2147483646; pointer-events: none;' +
@@ -1488,15 +1490,8 @@ def _html_js_movel(usuario=None, token=None):
       '#ei-edge::before { content: ""; width: 6px; height: 84px; border-radius: 6px;' +
       ' background: rgba(120,120,120,0.45); box-shadow: 0 0 0 5px rgba(120,120,120,0.10);' +
       ' animation: ei-edge-pulse 1.9s ease-in-out infinite; }' +
-      '#ei-edge::after { content: "Deslize para abrir o menu"; position: absolute; left: 36px; top: 50%;' +
-      ' transform: translateY(-50%); white-space: nowrap; font-size: .82rem; font-weight: 700;' +
-      ' color: #fff; background: rgba(30,30,40,0.72); padding: 8px 13px; border-radius: 10px;' +
-      ' box-shadow: 0 4px 14px rgba(0,0,0,0.25); animation: ei-edge-tip 6s ease forwards;' +
-      ' pointer-events: none; }' +
       '@keyframes ei-edge-pulse { 0%, 100% { opacity: .5; transform: translateX(0); }' +
-      ' 50% { opacity: 1; transform: translateX(2px); } }' +
-      '@keyframes ei-edge-tip { 0% { opacity: 0; } 10% { opacity: 1; } 78% { opacity: 1; }' +
-      ' 100% { opacity: 0; } }';
+      ' 50% { opacity: 1; transform: translateX(2px); } }';
     (d.head || d.documentElement).appendChild(s);
   }
 
@@ -1544,7 +1539,7 @@ def _html_js_movel(usuario=None, token=None):
   function onStart(e) {
     if (!isMobile() || e.touches.length !== 1) return;
     var t = e.touches[0];
-    drag = { sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null };
+    drag = { sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null, w: sbWidth() };
   }
   function onMove(e) {
     if (!drag) return;
@@ -1562,10 +1557,11 @@ def _html_js_movel(usuario=None, token=None):
     }
     e.preventDefault();
     var s = side(); if (!s) return;
-    var w = sbWidth();
+    var w = drag.w;
     s.style.transition = 'none';
     if (drag.mode === 'open') {
-      // sidebar recolhida: revela seguindo o dedo (largura real + transform)
+      // largura fixa (300px): o conteudo nao se adapta, apenas a tela vai
+      // revelando a barra conforme o dedo puxa para a direita
       s.style.width = w + 'px'; s.style.minWidth = w + 'px'; s.style.maxWidth = w + 'px';
       s.style.transform = 'translateX(' + Math.max(-w, -w + drag.dx) + 'px)';
     } else {
@@ -1576,7 +1572,7 @@ def _html_js_movel(usuario=None, token=None):
     if (!drag) return;
     var was = drag; drag = null;
     var s = side(); if (!s) return;
-    var w = sbWidth();
+    var w = was.w;
     var lim = Math.max(60, w * 0.25);
     if (was.mode === 'open') {
       if (was.dx > lim) commitOpen(s, w); else reset(s);
