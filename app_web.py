@@ -720,30 +720,37 @@ section[data-testid="stSidebar"] {
     background: linear-gradient(185deg, var(--cor-s) 0%, @@CORS_GRAD@@ 100%) !important;
     border-right: 1px solid rgba(255,255,255,0.10);
 }
+@media (min-width: 769px) {
+    section[data-testid="stSidebar"] {width: 16.5rem !important; min-width: 16.5rem !important;}
+}
 section[data-testid="stSidebar"] {color: #ececec !important;}
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding-top: 2px !important;
+    padding-bottom: 6px !important;
+}
 section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] .stMarkdown, section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
 section[data-testid="stSidebar"] .stCaption {
     color: #ececec !important;
 }
 .logo-web {
-    font-size: 2rem; font-weight: 800; line-height: 1.1; text-align: center;
-    padding: 16px 10px 6px 10px; letter-spacing: -0.02em;
+    font-size: 1.85rem; font-weight: 800; line-height: 1.1; text-align: center;
+    padding: 2px 8px 4px 8px; letter-spacing: -0.02em;
     background: linear-gradient(90deg, #ffffff, #e6c8ff);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 .logo-web small {font-size: .5em; letter-spacing: 4px; font-weight: 700;
     -webkit-text-fill-color: rgba(255,255,255,.70); color: rgba(255,255,255,.70);}
 .nav-secao {
-    font-size: .68rem; font-weight: 800; letter-spacing: 2.5px; color: rgba(255,255,255,.55) !important;
-    padding: 18px 12px 6px 12px; text-transform: uppercase;
-    border-top: 1px solid rgba(255,255,255,.08); margin-top: 8px;
+    font-size: .66rem; font-weight: 800; letter-spacing: 2.5px; color: rgba(255,255,255,.55) !important;
+    padding: 10px 12px 4px 12px; text-transform: uppercase;
+    border-top: 1px solid rgba(255,255,255,.08); margin-top: 2px;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    width: 100%; text-align: left; justify-content: flex-start; gap: 8px;
+    width: 100%; text-align: left; justify-content: flex-start; gap: 10px;
     background: transparent; border: 1px solid transparent; color: rgba(255,255,255,.85) !important;
-    border-radius: 10px; padding: .58rem .9rem; font-size: .95rem; font-weight: 600;
-    margin-bottom: 3px; transition: all .18s ease; box-shadow: none;
+    border-radius: 9px; padding: .40rem .68rem; font-size: .87rem; font-weight: 600;
+    margin-bottom: 2px; transition: all .18s ease; box-shadow: none;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.12) !important; color: #fff !important;
@@ -1022,9 +1029,29 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] div[data-baseweb="select"] > div,
 [data-testid="stDialog"] div[data-baseweb="select"] input,
 [data-testid="stDialog"] [data-baseweb="select"] span,
-[data-testid="stDialog"] [data-baseweb="select"] div,
-[data-testid="stDialog"] [data-baseweb="slider"] {
+[data-testid="stDialog"] [data-baseweb="select"] div {
     background: var(--card-bg) !important; color: var(--cor-texto) !important;
+}
+/* slider de cores (select_slider): o balao do valor selecionado fica sobre
+   o fundo primario -> texto branco; o thumb e a trilha usam a cor primaria */
+[data-testid="stDialog"] [data-baseweb="slider"] {
+    color: var(--cor-texto) !important;
+}
+[data-testid="stDialog"] [data-baseweb="slider"] [role="slider"],
+[data-testid="stDialog"] [data-baseweb="slider"] [role="slider"] * {
+    background-color: var(--cor-p) !important;
+    color: #ffffff !important;
+}
+[data-testid="stDialog"] [data-baseweb="slider"] [data-testid="stSliderThumbValue"],
+[data-testid="stDialog"] [data-baseweb="slider"] [data-testid="stSliderThumbValue"] * {
+    background-color: transparent !important;
+    color: #ffffff !important;
+}
+[data-testid="stDialog"] [data-testid="stSliderThumbValue"] [data-testid="stMarkdownContainer"] {
+    background-color: transparent !important;
+}
+[data-testid="stDialog"] [data-testid="stSliderTickBar"] [data-testid="stMarkdownContainer"] {
+    color: var(--cor-texto) !important;
 }
 [data-testid="stDialog"] [data-baseweb="popover"] [role="listbox"],
 [data-testid="stDialog"] [data-baseweb="menu"],
@@ -1988,7 +2015,7 @@ def link_para(pagina, base="."):
 # 6. SIDEBAR (menu lateral)
 # =====================================================================
 NAV_PLANEJAMENTO = [
-    ("Dashboard", "Dashboard"),
+    ("Dashboard", "In\u00edcio"),
     ("Grade Semanal", "Grade Semanal"),
     ("Turmas & Alunos", "Turmas & Alunos"),
     ("Central de Planos", "Central de Planos"),
@@ -2003,6 +2030,20 @@ NAV_AVALIACOES = [
     ("Configuracoes", "Configuracoes"),
 ]
 
+ICONES_NAV = {
+    "Dashboard": "\u2302",
+    "Grade Semanal": "\u25a6",
+    "Turmas & Alunos": "\u25c8",
+    "Central de Planos": "\u2691\uFE0E",
+    "Anotacoes": "\u270e\uFE0E",
+    "Notas e Estatisticas": "\u25a5",
+    "Cadastrar Questao": "\uff0b",
+    "Importar IA": "\u2913",
+    "Catalogo de Questoes": "\u2630",
+    "Gerar Prova": "\u25a4",
+    "Configuracoes": "\u2699\uFE0E",
+}
+
 def montar_sidebar():
     atual = pagina_atual()
     with st.sidebar:
@@ -2011,14 +2052,18 @@ def montar_sidebar():
             unsafe_allow_html=True)
         st.markdown('<div class="nav-secao">Planejamento</div>', unsafe_allow_html=True)
         for chave, rotulo in NAV_PLANEJAMENTO:
-            if st.button(rotulo, key=f"nav_p_{chave}",
+            icone = ICONES_NAV.get(chave, "")
+            rotulo_html = f"{icone}  {rotulo}" if icone else rotulo
+            if st.button(rotulo_html, key=f"nav_p_{chave}",
                          type="primary" if atual == chave else "secondary",
                          use_container_width=True):
                 st.query_params["pagina"] = chave
                 st.rerun()
         st.markdown('<div class="nav-secao">Avaliacoes</div>', unsafe_allow_html=True)
         for chave, rotulo in NAV_AVALIACOES:
-            if st.button(rotulo, key=f"nav_a_{chave}",
+            icone = ICONES_NAV.get(chave, "")
+            rotulo_html = f"{icone}  {rotulo}" if icone else rotulo
+            if st.button(rotulo_html, key=f"nav_a_{chave}",
                          type="primary" if atual == chave else "secondary",
                          use_container_width=True):
                 st.query_params["pagina"] = chave
