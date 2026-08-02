@@ -184,12 +184,17 @@ DESCRITORES_MAT = {
 #     As funcoes carregar_* / salvar_* continuam iguais para o resto do app.
 # =====================================================================
 def _obter_banco_url():
+    env = os.environ.get("BANCO_URL", "").strip()
+    if env:
+        if env.lower() in ("0", "off", "false", "nenhum"):
+            return ""
+        return env
     try:
         if "BANCO_URL" in st.secrets:
             return str(st.secrets["BANCO_URL"]).strip()
     except Exception:
         pass
-    return os.environ.get("BANCO_URL", "").strip()
+    return ""
 
 BANCO_ATIVO = bool(_obter_banco_url()) and _TEM_PSYCOPG2
 
