@@ -898,12 +898,25 @@ div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
     box-shadow: 0 4px 12px rgba(0,0,0,.20);}
 .cal-scroll {overflow-x: auto; -webkit-overflow-scrolling: touch;}
 
-/* Calendario com widgets (Dashboard): escopo na coluna esquerda */
-div.stElementContainer:has(.cal-widgets-marker) ~ div.stElementContainer [data-testid="stButton"] button {
+/* Calendario com widgets (Dashboard): escopo nos botoes de dia.
+   Nunca quebrar um dia de dois digitos em duas linhas: bloqueia quebra
+   de palavra (overflow-wrap/word-break) e, no mobile, reduz a fonte. */
+div[class*="st-key-cal_d_"] button {
     padding: 0.2rem 0.1rem !important;
     min-height: 2.05rem;
     font-weight: 700;
     border-radius: 10px;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    overflow: hidden;
+}
+div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"],
+div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    margin: 0 !important;
 }
 
 /* ---------------- Mini grade (Grade Semanal no Dashboard) ---------------- */
@@ -1002,10 +1015,19 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     div[class*="st-key-card_dash_cal"] div[data-testid="stColumn"] {
         flex: 1 1 0 !important; min-width: 0 !important; width: 100% !important;
     }
-    div.stElementContainer:has(.cal-widgets-marker) ~ div.stElementContainer [data-testid="stButton"] button {
-        padding: .1rem 0 !important; min-height: 1.7rem; font-size: .72rem; border-radius: 8px;
+    div[class*="st-key-cal_d_"] button {
+        padding: .1rem 0 !important; min-height: 1.6rem; font-size: .62rem; border-radius: 8px;
         white-space: nowrap !important; overflow: hidden; font-variant-numeric: tabular-nums;
-        letter-spacing: 0;
+        letter-spacing: 0; overflow-wrap: normal !important; word-break: normal !important;
+        text-overflow: clip;
+    }
+    div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"],
+    div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        font-size: .62rem !important;
+        margin: 0 !important;
     }
     /* Grade Semanal: 2 dias por linha em telas pequenas */
     div[class*="st-key-grade_dias"] div[data-testid="stColumn"] {
@@ -1431,19 +1453,120 @@ def _html_js_movel(usuario=None, token=None):
     d.body.appendChild(fab);
   }}
 
-  // --- gesto: puxar a borda esquerda abre; empurrar para a esquerda fecha ---
-  var sx = 0, sy = 0;
-  d.addEventListener('touchstart', function(e) {{
-    var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
-  }}, {{passive: true}});
-  d.addEventListener('touchend', function(e) {{
-    if (!isMobile()) return;
-    var t = e.changedTouches[0];
-    var dx = t.clientX - sx, dy = t.clientY - sy;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    if (dx > 0 && sx < 26 && !isOpen()) openSb();
-    else if (dx < 0 && isOpen()) closeSb();
-  }}, {{passive: true}});
+  // --- gesto: arrastar da borda esquerda abre seguindo o dedo; empurrar p/ esq fecha ---
+  var EDGE = 30;
+  var drag = null;
+
+  function side() {{ return el('[data-testid="stSidebar"]'); }}
+
+  // Bloqueia a navegacao de voltar por gesto do navegador (overscroll + touch-action)
+  function injectStyles() {{
+    if (d.getElementById('ei-styles')) return;
+    var s = d.createElement('style');
+    s.id = 'ei-styles';
+    s.textContent =
+      'html, body {{ overscroll-behavior-x: contain !important; }}' +
+      '#ei-edge {{ position: fixed; left: 0; top: 0; bottom: 0; width: ' + EDGE + 'px;' +
+      ' z-index: 2147483646; touch-action: pan-y; background: transparent; }}';
+    (d.head || d.documentElement).appendChild(s);
+  }}
+
+  function ensureOverlay() {{
+    if (!isMobile() || el('#ei-edge')) return;
+    if (!side()) return;
+    var o = d.createElement('div');
+    o.id = 'ei-edge';
+    d.body.appendChild(o);
+    syncOverlay();
+  }}
+  function syncOverlay() {{
+    var o = el('#ei-edge');
+    if (o) o.style.display = (isMobile() && !isOpen()) ? 'block' : 'none';
+  }}
+
+  // largura real da sidebar (le o translateX do estado recolhido do Streamlit)
+  function sbWidth() {{
+    var s = side();
+    if (!s) return 300;
+    var t = getComputedStyle(s).transform || '';
+    var parts = t.split(/[,() ]+/);
+    for (var i = parts.length - 1; i >= 0; i--) {{
+      var n = parseFloat(parts[i]);
+      if (!isNaN(n) && n !== 0) return Math.abs(n);
+    }}
+    return s.offsetWidth || 300;
+  }}
+
+  function inXScroll(e) {{
+    if (!e.target || !e.target.closest) return false;
+    return !!e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
+  }}
+
+  function onStart(e) {{
+    if (!isMobile() || e.touches.length !== 1) return;
+    var t = e.touches[0];
+    drag = {{ sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null }};
+  }}
+  function onMove(e) {{
+    if (!drag) return;
+    var t = e.touches[0];
+    var dx = t.clientX - drag.sx;
+    var dy = t.clientY - drag.sy;
+    drag.dx = dx; drag.dy = dy;
+    var open = isOpen();
+    if (!drag.mode) {{
+      var horiz = Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15;
+      if (!horiz) return;
+      if (!open && drag.sx <= EDGE) drag.mode = 'open';
+      else if (open && !inXScroll(e)) drag.mode = 'close';
+      else {{ drag = null; return; }}
+    }}
+    e.preventDefault();
+    var s = side(); if (!s) return;
+    var w = sbWidth();
+    s.style.transition = 'none';
+    if (drag.mode === 'open') {{
+      // sidebar recolhida: revela seguindo o dedo (largura real + transform)
+      s.style.width = w + 'px'; s.style.minWidth = w + 'px'; s.style.maxWidth = w + 'px';
+      s.style.transform = 'translateX(' + Math.max(-w, -w + drag.dx) + 'px)';
+    }} else {{
+      s.style.transform = 'translateX(' + Math.max(-w, drag.dx) + 'px)';
+    }}
+  }}
+  function onEnd(e) {{
+    if (!drag) return;
+    var was = drag; drag = null;
+    var s = side(); if (!s) return;
+    var w = sbWidth();
+    var lim = Math.max(60, w * 0.25);
+    if (was.mode === 'open') {{
+      if (was.dx > lim) commitOpen(s, w); else reset(s);
+    }} else if (was.mode === 'close') {{
+      if (was.dx < -lim) commitClose(s, w); else reset(s);
+    }}
+    syncOverlay();
+  }}
+  function commitOpen(s, w) {{
+    s.style.transition = 'none';
+    s.style.width = w + 'px'; s.style.minWidth = w + 'px'; s.style.maxWidth = w + 'px';
+    s.style.transform = 'translateX(0)';
+    openSb();
+    setTimeout(function() {{ reset(s); syncOverlay(); }}, 400);
+  }}
+  function commitClose(s, w) {{
+    s.style.transition = 'none';
+    s.style.transform = 'translateX(-' + w + 'px)';
+    closeSb();
+    setTimeout(function() {{ reset(s); syncOverlay(); }}, 400);
+  }}
+  function reset(s) {{
+    s.style.transition = ''; s.style.width = ''; s.style.minWidth = ''; s.style.maxWidth = ''; s.style.transform = '';
+  }}
+
+  d.addEventListener('touchstart', onStart, {{passive: true}});
+  d.addEventListener('touchmove', onMove, {{passive: false}});
+  d.addEventListener('touchend', onEnd, {{passive: true}});
+  d.addEventListener('touchcancel', onEnd, {{passive: true}});
 
   // --- auto-ocultar apos navegar pelo menu ---
   function watchNav() {{
@@ -1475,13 +1598,16 @@ def _html_js_movel(usuario=None, token=None):
     else {{ if (getCookie(COOKIE)) clearCookie(COOKIE); }}
   }}
 
+  injectStyles();
   ensureFab();
   watchNav();
   syncCookie();
 
   // mantem vivo apos reruns do Streamlit
-  var obs = new MutationObserver(function() {{ ensureFab(); watchNav(); }});
+  var obs = new MutationObserver(function() {{ ensureFab(); watchNav(); ensureOverlay(); syncOverlay(); }});
   obs.observe(d.body, {{ childList: true, subtree: true }});
+  setTimeout(function() {{ ensureOverlay(); syncOverlay(); }}, 400);
+  setInterval(function() {{ ensureOverlay(); syncOverlay(); }}, 500);
 }})();
 </script>"""
 
