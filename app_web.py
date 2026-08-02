@@ -94,6 +94,7 @@ CONFIG_PADRAO = {
     "cor_tema": "blue",
     "cor_principal": "#1f538d",
     "cor_secundaria": "#14375e",
+    "cor_borda_card": "",
     "cor_fundo": "#2b2b2b"
 }
 
@@ -859,6 +860,7 @@ div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within 
 .card {
     background: var(--card-bg); border: 1px solid var(--borda); border-radius: 14px;
     padding: 14px 16px; margin-bottom: 12px;
+    border-top: 3px solid @@COR_BORDA@@;
     box-shadow: 0 1px 3px rgba(0,0,0,.05); transition: box-shadow .2s ease, transform .2s ease;
 }
 .card:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10); transform: translateY(-1px);}
@@ -866,9 +868,39 @@ div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within 
 div[class*="st-key-card_"] {
     background: var(--card-bg); border: 1px solid var(--borda); border-radius: 14px;
     padding: 14px 16px; margin-bottom: 12px;
+    border-top: 3px solid @@COR_BORDA@@;
     box-shadow: 0 1px 3px rgba(0,0,0,.05); transition: box-shadow .2s ease;
 }
 div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
+
+/* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
+   com fundos levemente tingidos e borda superior colorida em cada campo. */
+@media (min-width: 769px) {
+    div[class*="st-key-dash_wrap"] {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+        grid-template-rows: 1fr 1fr auto;
+        grid-template-areas:
+            "mural cal"
+            "grade cal"
+            "agenda agenda";
+        gap: 12px;
+        align-items: stretch;
+        min-height: calc(100vh - 235px);
+    }
+    div[class*="st-key-dash_wrap"] > div { min-width: 0; }
+    div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_mural)  { grid-area: mural; }
+    div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_grade)  { grid-area: grade; }
+    div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_cal)    { grid-area: cal; }
+    div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_agenda) { grid-area: agenda; }
+    div[class*="st-key-dash_wrap"] > div > div.stVerticalBlock { height: 100%; }
+    div[class*="st-key-dash_wrap"] div[class*="st-key-card_"] { margin-bottom: 0 !important; }
+    div[class*="st-key-card_dash_agenda"] { min-height: 150px; }
+}
+div[class*="st-key-card_dash_cal"]    { background: linear-gradient(180deg, @@TINT_CAL@@ 0%, var(--card-bg) 130px); }
+div[class*="st-key-card_dash_mural"]  { background: linear-gradient(180deg, @@TINT_MURAL@@ 0%, var(--card-bg) 130px); }
+div[class*="st-key-card_dash_grade"]  { background: linear-gradient(180deg, @@TINT_GRADE@@ 0%, var(--card-bg) 130px); }
+div[class*="st-key-card_dash_agenda"] { background: linear-gradient(180deg, @@TINT_AGENDA@@ 0%, var(--card-bg) 130px); }
 .card-titulo {font-weight: 800; font-size: .95rem; margin-bottom: 4px; color: var(--cor-texto);}
 .card-sub {font-size: .82rem; color: var(--cor-cinza);}
 .tag {
@@ -1092,6 +1124,7 @@ def injetar_css(config):
     cor_p_edge = ajustar_cor(cor_p, 0.66)
     cor_s_grad = ajustar_cor(cor_s, 0.80)
     tag_txt = ajustar_cor(cor_s, 0.55)
+    cor_borda = (config.get("cor_borda_card") or "").strip() or cor_p
 
     css = CSS_TEMPLATE
     css = css.replace("@@CORP@@", cor_p)
@@ -1103,6 +1136,11 @@ def injetar_css(config):
     css = css.replace("@@CORP_SHADOW@@", cor_rgba(cor_p, 0.35))
     css = css.replace("@@CORS_GRAD@@", cor_s_grad)
     css = css.replace("@@CORS_SOFT@@", cor_rgba(cor_s, 0.12))
+    css = css.replace("@@COR_BORDA@@", cor_borda)
+    css = css.replace("@@TINT_CAL@@", cor_rgba(cor_p, 0.12))
+    css = css.replace("@@TINT_MURAL@@", cor_rgba(cor_s, 0.10))
+    css = css.replace("@@TINT_GRADE@@", cor_rgba(cor_p, 0.06))
+    css = css.replace("@@TINT_AGENDA@@", cor_rgba(cor_s, 0.14))
     css = css.replace("@@TAGS@@", tag_txt)
     css = css.replace("@@SCROLL@@", cor_rgba(cor_p, 0.45))
     css = css.replace("@@MINI_DIA@@", cor_rgba(cor_s, 0.06))
@@ -2282,9 +2320,7 @@ def fragmento_dashboard():
         dia_selecionada = hoje.strftime("%d/%m/%Y")
         st.session_state["dash_dia"] = dia_selecionada
 
-    col_esq, col_meio, col_dir = st.columns([1.7, 1, 1.1])
-
-    with col_esq:
+    with st.container(key="dash_wrap"):
         with st.container(key="card_dash_cal"):
             novo_dia = render_calendario(planos)
             if novo_dia:
@@ -2295,7 +2331,6 @@ def fragmento_dashboard():
             st.markdown('<div class="card-titulo">Grade Semanal</div>', unsafe_allow_html=True)
             st.markdown(html_grade_mini(grade), unsafe_allow_html=True)
 
-    with col_meio:
         with st.container(key="card_dash_mural"):
             topo = st.columns([3, 1])
             topo[0].markdown('<div class="card-titulo">Mural Rapido</div>', unsafe_allow_html=True)
@@ -2321,7 +2356,6 @@ def fragmento_dashboard():
                     salvar_anotacoes(anotacoes)
                     st.rerun()
 
-    with col_dir:
         with st.container(key="card_dash_agenda"):
             st.markdown(
                 f'<div class="card-titulo">Agenda: {dia_selecionada}</div>',
@@ -3496,6 +3530,9 @@ def tela_configuracoes():
 
         cor_principal = c1.color_picker("Cor Principal:", value=config.get("cor_principal", "#1f538d"))
         cor_secundaria = c1.color_picker("Cor Secundaria:", value=config.get("cor_secundaria", "#14375e"))
+        cor_borda_card = c1.color_picker(
+            "Cor da borda superior dos cards:",
+            value=config.get("cor_borda_card") or config.get("cor_principal", "#1f538d"))
         c1.caption("As cores customizadas valem quando o 'Tema Padrao Base' for 'Personalizado'.")
 
         opcoes_fonte = ["Arial", "Times New Roman", "Calibri", "Tahoma"]
@@ -3537,7 +3574,8 @@ def tela_configuracoes():
                 "aparencia": aparencia,
                 "cor_tema": cor_tema,
                 "cor_principal": cor_principal.strip() or "#1f538d",
-                "cor_secundaria": cor_secundaria.strip() or "#14375e"
+                "cor_secundaria": cor_secundaria.strip() or "#14375e",
+                "cor_borda_card": cor_borda_card.strip() or config.get("cor_principal", "#1f538d")
             }
             salvar_config(nova_config)
             st.success("Configuracoes e cores aplicadas com sucesso!")
