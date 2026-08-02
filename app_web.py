@@ -492,6 +492,7 @@ def criar_conta(nome, usuario, senha):
         "nome": nome.strip(),
         "usuario": usuario.strip(),
         "senha_hash": [salt, digest],
+        "cookie_token": os.urandom(16).hex(),
         "onboarding_pendente": bool(not nome.strip()),
         "criado_em": datetime.now().strftime("%d/%m/%Y %H:%M")
     })
@@ -519,6 +520,40 @@ def concluir_onboarding(nome, escola):
     config["professor"] = (nome or "").strip()
     config["escola"] = (escola or "").strip()
     salvar_config(config)
+
+# ---- Lembrar da conta (cookie) ----
+EI_COOKIE = "ei_usuario"
+
+def garantir_cookie_token():
+    conta = conta_atual()
+    if not conta:
+        return None, None
+    if not conta.get("cookie_token"):
+        usuarios = carregar_usuarios()
+        alvo = str(conta.get("usuario", "")).lower()
+        for u in usuarios:
+            if str(u.get("usuario", "")).lower() == alvo:
+                u["cookie_token"] = os.urandom(16).hex()
+                break
+        salvar_usuarios(usuarios)
+        conta = conta_atual()
+    return conta.get("usuario", ""), conta.get("cookie_token", "")
+
+def _autologin_por_cookie():
+    if st.session_state.get("deslogado_manual"):
+        return False
+    try:
+        valor = st.context.cookies.get(EI_COOKIE, "")
+    except Exception:
+        return False
+    if not isinstance(valor, str) or not valor or "|" not in valor:
+        return False
+    usuario, token = valor.split("|", 1)
+    conta = conta_atual(usuario)
+    if conta and conta.get("cookie_token") and hmac.compare_digest(str(conta.get("cookie_token")), token):
+        st.session_state["usuario"] = conta["usuario"]
+        return True
+    return False
 
 def garantir_usuario_teste():
     if not usuario_existe("_teste_"):
@@ -986,29 +1021,22 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     [data-testid="stDialog"] {max-width: 94vw !important;}
 }
 
-/* Sidebar no celular: menu sempre visivel no topo (nao some e nao vira
-   gaveta sem botao de voltar). O Streamlit usa breakpoint md = 768px. */
+/* Botao flutuante do menu (criado pelo JS injetado) - so em telas pequenas.
+   A sidebar nativa volta a ser a gaveta lateral do Streamlit. */
+#ei-mobile-menu {
+    display: none !important;
+}
 @media (max-width: 768px) {
-    div[data-testid="stAppViewContainer"] {
-        display: block !important; position: relative !important;
-        height: auto !important; overflow: visible !important;
+    #ei-mobile-menu {
+        display: flex !important;
+        position: fixed; right: 14px; bottom: 14px; z-index: 99999;
+        width: 52px; height: 52px; border-radius: 16px; border: none; cursor: pointer;
+        background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
+        color: @@BTN@@ !important; font-size: 24px; line-height: 1;
+        align-items: center; justify-content: center;
+        box-shadow: 0 8px 22px @@CORP_SHADOW@@;
     }
-    section[data-testid="stMain"] {
-        position: relative !important; top: auto !important; left: auto !important;
-        right: auto !important; height: auto !important; overflow: visible !important;
-    }
-    section[data-testid="stSidebar"] {
-        position: relative !important; transform: none !important;
-        width: 100% !important; max-width: 100% !important; min-width: 0 !important;
-        height: auto !important; max-height: none !important; flex: none !important;
-        box-shadow: none !important; z-index: 5 !important;
-        border-right: none !important; border-radius: 0 0 14px 14px !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-        height: auto !important; max-height: 42vh !important; overflow-y: auto !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    header[data-testid="stHeader"] { display: none !important; }
+    #ei-mobile-menu:active { transform: scale(.94); }
 }
 
 @media (max-width: 480px) {
@@ -1365,6 +1393,102 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
     return buffer
 
 # =====================================================================
+# 3.1 JS INJETADO (componente): menu movel + swipe + cookie de login
+#     Roda dentro de um iframe do mesmo dominio e controla o pai.
+# =====================================================================
+def _html_js_movel(usuario=None, token=None):
+    payload = ""
+    if usuario and token:
+        import json as _json
+        payload = _json.dumps({"usuario": usuario, "token": token})
+
+    return f"""<script>
+(function(){{
+  var W = window.parent;
+  var d = W.document;
+  var COOKIE = "ei_usuario";
+  if (W.__eiReady) return;
+  W.__eiReady = true;
+
+  function isMobile() {{ return W.matchMedia("(max-width: 768px)").matches; }}
+  function el(sel) {{ return d.querySelector(sel); }}
+  function isOpen() {{ return !!el('[data-testid="stSidebarCollapseButton"]'); }}
+  function openSb() {{ var b = el('[data-testid="stExpandSidebarButton"]'); if (b) b.click(); }}
+  function closeSb() {{ var b = el('[data-testid="stSidebarCollapseButton"]'); if (b) b.click(); }}
+  function toggleSb() {{ isOpen() ? closeSb() : openSb(); }}
+
+  // --- menu flutuante (so quando ha sidebar com botoes) ---
+  function ensureFab() {{
+    if (!isMobile()) return;
+    var side = el('[data-testid="stSidebar"]');
+    if (!side || !side.querySelector('button')) return;
+    if (el('#ei-mobile-menu')) return;
+    var fab = d.createElement('button');
+    fab.id = 'ei-mobile-menu';
+    fab.innerHTML = '&#9776;';
+    fab.setAttribute('aria-label', 'Abrir menu');
+    fab.addEventListener('click', function(ev) {{ ev.stopPropagation(); ev.preventDefault(); toggleSb(); }});
+    d.body.appendChild(fab);
+  }}
+
+  // --- gesto: puxar a borda esquerda abre; empurrar para a esquerda fecha ---
+  var sx = 0, sy = 0;
+  d.addEventListener('touchstart', function(e) {{
+    var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+  }}, {{passive: true}});
+  d.addEventListener('touchend', function(e) {{
+    if (!isMobile()) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (dx > 0 && sx < 26 && !isOpen()) openSb();
+    else if (dx < 0 && isOpen()) closeSb();
+  }}, {{passive: true}});
+
+  // --- auto-ocultar apos navegar pelo menu ---
+  function watchNav() {{
+    var side = el('[data-testid="stSidebar"]');
+    if (!side || side.__eiWatch) return;
+    side.__eiWatch = true;
+    side.addEventListener('click', function(ev) {{
+      var b = ev.target.closest('button');
+      if (!b) return;
+      if (b.getAttribute('data-testid') === 'stSidebarCollapseButton') return;
+      setTimeout(function() {{ if (isOpen()) closeSb(); }}, 450);
+    }});
+  }}
+
+  // --- cookie de login (lembrar da conta) ---
+  function setCookie(name, value) {{
+    d.cookie = name + "=" + encodeURIComponent(value) + "; path=/; max-age=2592000; SameSite=Lax";
+  }}
+  function clearCookie(name) {{
+    d.cookie = name + "=; path=/; max-age=0";
+  }}
+  function getCookie(name) {{
+    var m = d.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }}
+  function syncCookie() {{
+    var p = {payload or "null"};
+    if (p && p.usuario) {{ setCookie(COOKIE, p.usuario + "|" + p.token); }}
+    else {{ if (getCookie(COOKIE)) clearCookie(COOKIE); }}
+  }}
+
+  ensureFab();
+  watchNav();
+  syncCookie();
+
+  // mantem vivo apos reruns do Streamlit
+  var obs = new MutationObserver(function() {{ ensureFab(); watchNav(); }});
+  obs.observe(d.body, {{ childList: true, subtree: true }});
+}})();
+</script>"""
+
+def injetar_js_movel(usuario=None, token=None):
+    st.iframe(_html_js_movel(usuario, token), width=1, height=1)
+
+# =====================================================================
 # 4. MOTOR EXCEL (relatorio de avaliacao, em memoria)
 # =====================================================================
 def gerar_excel_avaliacao(av):
@@ -1645,6 +1769,7 @@ def montar_sidebar():
                 st.session_state.pop("usuario", None)
                 st.session_state.pop("bem_vindo", None)
                 st.session_state.pop("login_modo", None)
+                st.session_state["deslogado_manual"] = True
                 st.query_params.clear()
                 st.rerun()
 
@@ -3256,9 +3381,13 @@ def main():
     if not usuario_atual():
         if st.config.get_option("global.appTest") and os.environ.get("EXAME_TESTE_UI") != "1":
             st.session_state["usuario"] = garantir_usuario_teste()
-        else:
+        elif not _autologin_por_cookie():
             tela_login()
+            injetar_js_movel()
             return
+
+    usuario, token = garantir_cookie_token()
+    injetar_js_movel(usuario, token)
 
     if st.session_state.get("bem_vindo"):
         st.session_state.pop("bem_vindo")
