@@ -178,6 +178,10 @@ DESCRITORES_MAT = {
     "D37": "Associacao entre listas/tabelas e graficos."
 }
 
+def esc(s):
+    import html
+    return html.escape(str(s), quote=True)
+
 # =====================================================================
 # 0A. BANCO EXTERNO (Supabase/Postgres) - persistencia na nuvem
 #     Quando BANCO_URL estiver configurado (.streamlit/secrets.toml ou
@@ -674,6 +678,7 @@ def cor_rgba(hex_cor, alpha):
 CSS_TEMPLATE = """
 <style>
 :root {
+    color-scheme: @@SCHEME@@;
     --cor-p: @@CORP@@;
     --cor-s: @@CORS@@;
     --cor-ph: @@CORP_HOVER@@;
@@ -1009,6 +1014,34 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] h4, [data-testid="stDialog"] h5 {
     color: var(--cor-texto) !important;
 }
+/* Controles dentro de dialogos: cores legiveis garantidas
+   (evita fundo == cor da letra em navegadores com modo escuro forcado). */
+[data-testid="stDialog"] input, [data-testid="stDialog"] textarea,
+[data-testid="stDialog"] div[data-baseweb="input"],
+[data-testid="stDialog"] div[data-baseweb="input"] > div,
+[data-testid="stDialog"] div[data-baseweb="select"] > div,
+[data-testid="stDialog"] div[data-baseweb="select"] input,
+[data-testid="stDialog"] [data-baseweb="select"] span,
+[data-testid="stDialog"] [data-baseweb="select"] div,
+[data-testid="stDialog"] [data-baseweb="slider"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+}
+[data-testid="stDialog"] [data-baseweb="popover"] [role="listbox"],
+[data-testid="stDialog"] [data-baseweb="menu"],
+[data-testid="stDialog"] [data-baseweb="popover"] ul {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+}
+[data-testid="stDialog"] [data-baseweb="popover"] li {
+    color: var(--cor-texto) !important;
+}
+[data-testid="stDialog"] [data-baseweb="popover"] li:hover,
+[data-testid="stDialog"] [data-baseweb="popover"] li[aria-selected="true"] {
+    background: @@CORS_SOFT@@ !important; color: var(--cor-texto) !important;
+}
+[data-testid="stDialog"] .stButton > button[kind="secondary"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    border: 1px solid var(--borda) !important;
+}
 .stAlert {border-radius: 10px; border: 1px solid var(--borda);}
 [data-testid="stDataFrame"] {border: 1px solid var(--borda); border-radius: 12px; overflow: hidden;}
 
@@ -1123,6 +1156,7 @@ def injetar_css(config):
     cor_borda = (config.get("cor_borda_card") or "").strip() or cor_p
 
     css = CSS_TEMPLATE
+    css = css.replace("@@SCHEME@@", "dark" if dark else "light")
     css = css.replace("@@CORP@@", cor_p)
     css = css.replace("@@CORS@@", cor_s)
     css = css.replace("@@CORP_HOVER@@", cor_p_hover)
@@ -1958,7 +1992,7 @@ NAV_PLANEJAMENTO = [
     ("Grade Semanal", "Grade Semanal"),
     ("Turmas & Alunos", "Turmas & Alunos"),
     ("Central de Planos", "Central de Planos"),
-    ("Anotacoes", "Anotacoes"),
+    ("Anotacoes", "Lembretes"),
 ]
 NAV_AVALIACOES = [
     ("Notas e Estatisticas", "Notas e Estatisticas"),
@@ -2325,7 +2359,7 @@ def fragmento_dashboard():
 
         with st.container(key="card_dash_mural"):
             topo = st.columns([3, 1])
-            topo[0].markdown('<div class="card-titulo">Mural Rapido</div>', unsafe_allow_html=True)
+            topo[0].markdown('<div class="card-titulo">Lembretes</div>', unsafe_allow_html=True)
             if topo[1].button("+ Novo", key="dash_novo_postit", use_container_width=True):
                 dialog_postit()
             if not anotacoes:
@@ -2334,7 +2368,7 @@ def fragmento_dashboard():
                 cor = nota.get("cor") or "#fff3a3"
                 txt = cor_texto_legivel(cor)
                 st.markdown(
-                    f'<div class="postit" style="background:{cor};color:{txt} !important;">'
+                    f'<div class="postit" style="background:{cor};color:{txt};">'
                     f'<div class="pt-titulo">\U0001f4cb {esc(nota.get("titulo", ""))}</div>'
                     f'<div class="pt-tag">{esc(nota.get("data", ""))}</div>'
                     f'<div class="pt-conteudo">{esc(nota.get("texto", ""))}</div>'
@@ -2902,7 +2936,7 @@ def montar_aba_listar_planos(grade, config):
 # 13. TELA: ANOTACOES
 # =====================================================================
 def tela_anotacoes():
-    st.markdown("## Mural de Anotacoes (Post-its)")
+    st.markdown("## Lembretes")
     anotacoes = carregar_anotacoes()
     grade = carregar_grade()
 
@@ -2924,8 +2958,9 @@ def tela_anotacoes():
     for i, nota in enumerate(notas):
         with colunas[i % 3]:
             cor = nota.get("cor", "#fff3a3")
+            txt = cor_texto_legivel(cor)
             st.markdown(
-                f'<div class="postit" style="background:{cor};min-height:120px;">'
+                f'<div class="postit" style="background:{cor};color:{txt};min-height:120px;">'
                 f'<div class="pt-titulo">{nota.get("titulo","Sem titulo")}</div>'
                 f'<div class="pt-tag">#{nota.get("turma","Geral")} | {nota.get("data_criacao","")}</div>'
                 f'<div class="pt-conteudo">{nota.get("conteudo","")}</div></div>',
