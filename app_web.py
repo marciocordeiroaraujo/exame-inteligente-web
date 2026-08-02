@@ -874,7 +874,7 @@ div[class*="st-key-card_"] {
 div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
 
 /* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
-   com fundos levemente tingidos e borda superior colorida em cada campo. */
+   com borda superior colorida em cada campo e fundo branco puro. */
 @media (min-width: 769px) {
     div[class*="st-key-dash_wrap"] {
         display: grid !important;
@@ -897,10 +897,6 @@ div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
     div[class*="st-key-dash_wrap"] div[class*="st-key-card_"] { margin-bottom: 0 !important; }
     div[class*="st-key-card_dash_agenda"] { min-height: 150px; }
 }
-div[class*="st-key-card_dash_cal"]    { background: linear-gradient(180deg, @@TINT_CAL@@ 0%, var(--card-bg) 130px); }
-div[class*="st-key-card_dash_mural"]  { background: linear-gradient(180deg, @@TINT_MURAL@@ 0%, var(--card-bg) 130px); }
-div[class*="st-key-card_dash_grade"]  { background: linear-gradient(180deg, @@TINT_GRADE@@ 0%, var(--card-bg) 130px); }
-div[class*="st-key-card_dash_agenda"] { background: linear-gradient(180deg, @@TINT_AGENDA@@ 0%, var(--card-bg) 130px); }
 .card-titulo {font-weight: 800; font-size: .95rem; margin-bottom: 4px; color: var(--cor-texto);}
 .card-sub {font-size: .82rem; color: var(--cor-cinza);}
 .tag {
@@ -1112,10 +1108,10 @@ def injetar_css(config):
     else:
         cor_p = config.get("cor_principal", "#1f538d")
         cor_s = config.get("cor_secundaria", "#14375e")
-    cor_fundo = config.get("cor_fundo", "#2b2b2b") if dark else "#f5f6f8"
+    cor_fundo = config.get("cor_fundo", "#2b2b2b") if dark else "#e4e7ec"
     txt_btn = cor_texto_legivel(cor_p)
     card_bg = "#2b2b2b" if dark else "#ffffff"
-    borda = "rgba(255,255,255,0.10)" if dark else "#e3e6ea"
+    borda = "rgba(255,255,255,0.10)" if dark else "#d3d8e0"
     texto = "#e8e8e8" if dark else "#1f1f1f"
     texto_cinza = "#9a9a9a" if dark else "#6c757d"
 
@@ -1137,10 +1133,6 @@ def injetar_css(config):
     css = css.replace("@@CORS_GRAD@@", cor_s_grad)
     css = css.replace("@@CORS_SOFT@@", cor_rgba(cor_s, 0.12))
     css = css.replace("@@COR_BORDA@@", cor_borda)
-    css = css.replace("@@TINT_CAL@@", cor_rgba(cor_p, 0.12))
-    css = css.replace("@@TINT_MURAL@@", cor_rgba(cor_s, 0.10))
-    css = css.replace("@@TINT_GRADE@@", cor_rgba(cor_p, 0.06))
-    css = css.replace("@@TINT_AGENDA@@", cor_rgba(cor_s, 0.14))
     css = css.replace("@@TAGS@@", tag_txt)
     css = css.replace("@@SCROLL@@", cor_rgba(cor_p, 0.45))
     css = css.replace("@@MINI_DIA@@", cor_rgba(cor_s, 0.06))
