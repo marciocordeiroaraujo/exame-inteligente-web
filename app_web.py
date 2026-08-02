@@ -29,6 +29,13 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+try:
+    import psycopg2
+    _TEM_PSYCOPG2 = True
+except Exception:
+    psycopg2 = None
+    _TEM_PSYCOPG2 = False
+
 # =====================================================================
 # 0. INICIALIZACAO: garante que rode via `streamlit run`
 # (evita o modo "bare" ao executar com `python app_web.py` pelo VS Code)
@@ -171,6 +178,147 @@ DESCRITORES_MAT = {
 }
 
 # =====================================================================
+# 0A. BANCO EXTERNO (Supabase/Postgres) - persistencia na nuvem
+#     Quando BANCO_URL estiver configurado (.streamlit/secrets.toml ou
+#     variavel de ambiente), todos os dados passam a viver no Postgres.
+#     As funcoes carregar_* / salvar_* continuam iguais para o resto do app.
+# =====================================================================
+def _obter_banco_url():
+    try:
+        if "BANCO_URL" in st.secrets:
+            return str(st.secrets["BANCO_URL"]).strip()
+    except Exception:
+        pass
+    return os.environ.get("BANCO_URL", "").strip()
+
+BANCO_ATIVO = bool(_obter_banco_url()) and _TEM_PSYCOPG2
+
+def _conectar_banco():
+    conn = psycopg2.connect(_obter_banco_url(), sslmode="require")
+    conn.autocommit = True
+    return conn
+
+_TABELAS_OK = False
+
+def _garantir_tabelas():
+    global _TABELAS_OK
+    if _TABELAS_OK:
+        return
+    with _conectar_banco() as conn, conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS app_dados (
+                chave text PRIMARY KEY,
+                valor jsonb NOT NULL,
+                atualizado_em timestamptz NOT NULL DEFAULT now()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS app_imagens (
+                chave text PRIMARY KEY,
+                dados bytea NOT NULL,
+                atualizado_em timestamptz NOT NULL DEFAULT now()
+            )
+        """)
+    _TABELAS_OK = True
+
+def db_get_json(chave):
+    try:
+        _garantir_tabelas()
+        with _conectar_banco() as conn, conn.cursor() as cur:
+            cur.execute("SELECT valor FROM app_dados WHERE chave=%s", (chave,))
+            linha = cur.fetchone()
+            return linha[0] if linha else None
+    except Exception:
+        return None
+
+def db_set_json(chave, dados):
+    try:
+        _garantir_tabelas()
+        texto = json.dumps(dados, ensure_ascii=False)
+        with _conectar_banco() as conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO app_dados (chave, valor, atualizado_em) "
+                "VALUES (%s, %s::jsonb, now()) "
+                "ON CONFLICT (chave) DO UPDATE "
+                "SET valor=EXCLUDED.valor, atualizado_em=now()",
+                (chave, texto))
+    except Exception as e:
+        print("[BANCO] Erro ao salvar", chave, ":", e)
+
+def db_get_bytes(chave):
+    try:
+        _garantir_tabelas()
+        with _conectar_banco() as conn, conn.cursor() as cur:
+            cur.execute("SELECT dados FROM app_imagens WHERE chave=%s", (chave,))
+            linha = cur.fetchone()
+            return bytes(linha[0]) if linha else None
+    except Exception:
+        return None
+
+def db_set_bytes(chave, dados):
+    try:
+        _garantir_tabelas()
+        with _conectar_banco() as conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO app_imagens (chave, dados, atualizado_em) "
+                "VALUES (%s, %s, now()) "
+                "ON CONFLICT (chave) DO UPDATE "
+                "SET dados=EXCLUDED.dados, atualizado_em=now()",
+                (chave, psycopg2.Binary(bytes(dados))))
+    except Exception as e:
+        print("[BANCO] Erro ao salvar imagem", chave, ":", e)
+
+def _chave_de_caminho(caminho):
+    if not caminho:
+        return None
+    norm = str(caminho).replace("\\", "/")
+    partes = [p for p in norm.split("/") if p]
+    if partes == [ARQUIVO_USUARIOS]:
+        return "g::" + ARQUIVO_USUARIOS
+    if len(partes) >= 3 and partes[0] == PASTA_DADOS:
+        return "u::" + partes[1] + "::" + "/".join(partes[2:])
+    return None
+
+def imagem_existe(caminho):
+    chave = _chave_de_caminho(caminho)
+    if BANCO_ATIVO and chave:
+        return db_get_bytes(chave) is not None
+    return bool(caminho) and os.path.exists(caminho)
+
+def imagem_bytes(caminho):
+    chave = _chave_de_caminho(caminho)
+    if BANCO_ATIVO and chave:
+        dados = db_get_bytes(chave)
+        if dados is not None:
+            return dados
+    if caminho and os.path.exists(caminho):
+        with open(caminho, "rb") as f:
+            return f.read()
+    return b""
+
+def salvar_imagem_usuario(nome_arquivo, dados):
+    caminho = os.path.join(pasta_imagens(), nome_arquivo)
+    chave = _chave_de_caminho(caminho)
+    if BANCO_ATIVO and chave:
+        db_set_bytes(chave, dados)
+    else:
+        with open(caminho, "wb") as f:
+            f.write(bytes(dados))
+    return caminho
+
+def _testar_banco():
+    try:
+        _garantir_tabelas()
+        return True
+    except Exception as e:
+        print("[BANCO] Nao foi possivel conectar:", e)
+        return False
+
+if BANCO_ATIVO and not _testar_banco():
+    print("[BANCO] Desativando banco externo - usando arquivos locais.")
+    BANCO_ATIVO = False
+
+# =====================================================================
 # 1. UTILITARIOS DE DADOS (JSON) - mesmos arquivos do desktop
 #    Desde o port web, cada conta tem a propria pasta em dados_usuarios/
 # =====================================================================
@@ -200,6 +348,12 @@ def pasta_imagens():
     return destino
 
 def carregar_json(caminho, padrao):
+    if BANCO_ATIVO:
+        chave = _chave_de_caminho(caminho)
+        if chave:
+            dados = db_get_json(chave)
+            if dados is not None:
+                return dados
     if caminho and os.path.exists(caminho):
         try:
             with open(caminho, "r", encoding="utf-8") as arquivo:
@@ -211,6 +365,11 @@ def carregar_json(caminho, padrao):
 def salvar_json(caminho, dados):
     if not caminho:
         return
+    if BANCO_ATIVO:
+        chave = _chave_de_caminho(caminho)
+        if chave:
+            db_set_json(chave, dados)
+            return
     with open(caminho, "w", encoding="utf-8") as arquivo:
         json.dump(dados, arquivo, ensure_ascii=False, indent=4)
 
@@ -1044,13 +1203,14 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
                 p_extra.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
         caminho_img = q.get('imagem', '')
-        if caminho_img and os.path.exists(caminho_img):
+        if caminho_img and imagem_existe(caminho_img):
             try:
                 p_img = doc.add_paragraph()
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 run_img = p_img.add_run()
 
-                img_temp = Image.open(caminho_img)
+                dados_img = imagem_bytes(caminho_img)
+                img_temp = Image.open(io.BytesIO(dados_img))
                 largura_px, altura_px = img_temp.size
                 img_temp.close()
 
@@ -1059,9 +1219,9 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
                 proporcao = largura_px / altura_px if altura_px else 1
 
                 if proporcao >= 1.2:
-                    run_img.add_picture(caminho_img, width=Cm(limite_largura))
+                    run_img.add_picture(io.BytesIO(dados_img), width=Cm(limite_largura))
                 else:
-                    run_img.add_picture(caminho_img, height=Cm(limite_altura))
+                    run_img.add_picture(io.BytesIO(dados_img), height=Cm(limite_altura))
             except Exception:
                 p_erro = doc.add_paragraph("[Aviso: Erro ao renderizar a imagem.]")
                 p_erro.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -2648,9 +2808,7 @@ def tela_cadastrar():
             caminho_final_img = ""
             if imagem is not None:
                 nome_arq = imagem.name.replace(" ", "_")
-                caminho_final_img = os.path.join(pasta_imagens(), f"Q{novo_id}_{nome_arq}")
-                with open(caminho_final_img, "wb") as f_arq:
-                    f_arq.write(imagem.getbuffer())
+                caminho_final_img = salvar_imagem_usuario(nome_arq, imagem.getbuffer())
 
             banco.append({
                 "id": novo_id,
