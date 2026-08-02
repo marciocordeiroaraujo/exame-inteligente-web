@@ -504,7 +504,14 @@ def carregar_banco():
     return carregar_json(caminho_usuario(ARQUIVO_BANCO), [])
 
 def carregar_config():
-    return carregar_json(caminho_usuario(ARQUIVO_CONFIG), dict(CONFIG_PADRAO))
+    padrao = dict(CONFIG_PADRAO)
+    conta = conta_atual()
+    if conta and conta.get("nome"):
+        padrao["professor"] = conta["nome"]
+    else:
+        padrao["professor"] = "Professor"
+    padrao["escola"] = ""
+    return carregar_json(caminho_usuario(ARQUIVO_CONFIG), padrao)
 
 def carregar_planos():
     return carregar_json(caminho_usuario(ARQUIVO_PLANOS), {})
@@ -560,7 +567,8 @@ def salvar_avaliacoes(dados):
     salvar_json(caminho_usuario(ARQUIVO_AVALIACOES), dados)
 
 def primeiro_nome_professor(config):
-    return config.get("professor", "Professor").split()[0]
+    nome = (config.get("professor") or "").strip() or "Professor"
+    return nome.split()[0]
 
 MESES_PT = ["", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
@@ -812,9 +820,9 @@ div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
     transition: transform .2s ease, box-shadow .2s ease;
 }
 .postit:hover {transform: translateY(-2px) rotate(-.4deg); box-shadow: 0 8px 20px rgba(0,0,0,.18);}
-.postit .pt-titulo {font-weight: 800; font-size: .95rem; color: #333; margin-bottom: 4px;}
-.postit .pt-tag {font-size: .72rem; color: #555; margin-bottom: 4px;}
-.postit .pt-conteudo {font-size: .86rem; color: #222; white-space: pre-wrap;}
+.postit .pt-titulo {font-weight: 800; font-size: .95rem; color: inherit; margin-bottom: 4px;}
+.postit .pt-tag {font-size: .72rem; color: inherit; opacity: .78; margin-bottom: 4px;}
+.postit .pt-conteudo {font-size: .86rem; color: inherit; white-space: pre-wrap;}
 
 /* ---------------- Calendario ---------------- */
 .cal-table {border-collapse: separate; border-spacing: 4px; width: 100%;}
@@ -1805,6 +1813,13 @@ def dialog_plano(data_str, index_plano):
 # =====================================================================
 # 9. TELA: DASHBOARD
 # =====================================================================
+DISCIPLINAS_COMUNS = [
+    "Matematica", "Portugues", "Historia", "Geografia", "Ciencias",
+    "Biologia", "Fisica", "Quimica", "Ingles", "Espanhol", "Artes",
+    "Educacao Fisica", "Filosofia", "Sociologia", "Ensino Religioso",
+    "Informatica",
+]
+
 def render_calendario(planos):
     hoje = datetime.now()
     cal = st.session_state.get("dash_cal", hoje.strftime("%m/%Y"))
@@ -1836,10 +1851,17 @@ def render_calendario(planos):
         st.session_state["dash_cal"] = f"{mes:02d}/{ano}"
 
     with c2:
-        st.markdown(
-            f'<div style="text-align:center;font-weight:700;line-height:2.4;">'
-            f'{MESES_PT[mes]} / {ano}</div>',
-            unsafe_allow_html=True)
+        opcoes_pular = [f"{MESES_PT[m]} / {a}"
+                        for a in (ano - 1, ano, ano + 1) for m in range(1, 13)]
+        valor_atual = f"{MESES_PT[mes]} / {ano}"
+        escolha = c2.selectbox("Mes / Ano", opcoes_pular,
+                               index=opcoes_pular.index(valor_atual),
+                               key=f"cal_ir_{mes}_{ano}", label_visibility="collapsed")
+        if escolha != valor_atual:
+            m_nome, a_str = escolha.rsplit(" / ", 1)
+            mes, ano = MESES_PT.index(m_nome), int(a_str)
+            trocou_mes = True
+            st.session_state["dash_cal"] = f"{mes:02d}/{ano}"
 
     dias_cal = st.columns(7)
     for i, d in enumerate(DIAS_CURTO):
@@ -1904,12 +1926,14 @@ def fragmento_dashboard():
             if not anotacoes:
                 st.caption("Nenhum post-it. Crie um no botao + Novo.")
             for nota in anotacoes:
-                cor = nota.get("cor", "#fff3a3")
+                cor = nota.get("cor") or "#fff3a3"
+                txt = cor_texto_legivel(cor)
                 st.markdown(
-                    f'<div class="postit" style="background:{cor};">'
-                    f'<div class="pt-titulo">{nota.get("titulo","Sem titulo")}</div>'
-                    f'<div class="pt-tag">#{nota.get("turma","Geral")}</div>'
-                    f'<div class="pt-conteudo">{nota.get("conteudo","")}</div></div>',
+                    f'<div class="postit" style="background:{cor};color:{txt} !important;">'
+                    f'<div class="pt-titulo">\U0001f4cb {esc(nota.get("titulo", ""))}</div>'
+                    f'<div class="pt-tag">{esc(nota.get("data", ""))}</div>'
+                    f'<div class="pt-conteudo">{esc(nota.get("texto", ""))}</div>'
+                    f'</div>',
                     unsafe_allow_html=True)
                 b1, b2 = st.columns(2)
                 if b1.button("Editar", key=f"dash_edit_{nota.get('id')}", use_container_width=True):
@@ -1997,7 +2021,14 @@ def tela_grade_semanal():
             st.markdown("**Adicionar aula a grade**")
             l1, l2, l3 = st.columns([1, 1, 1.3])
             nova_turma = l1.text_input("Turma", placeholder="Ex: 7o A", key="grade_turma")
-            nova_disc = l2.text_input("Disciplina", placeholder="Ex: Matematica", key="grade_disc")
+            opcoes_disc = DISCIPLINAS_COMUNS + ["Outra disciplina..."]
+            disc_sel = l2.selectbox("Disciplina", opcoes_disc,
+                                    index=0, key="grade_disc_sel")
+            nova_disc = ""
+            if disc_sel == "Outra disciplina...":
+                nova_disc = l2.text_input("Digite a disciplina:", key="grade_disc_outra")
+            else:
+                nova_disc = disc_sel
             dia = l3.selectbox("Dia da semana", DIAS_UTEIS)
             aulas_sel = st.multiselect(
                 "Selecione as aulas", [f"{i}a Aula" for i in range(1, max_aulas + 1)],
@@ -3085,8 +3116,8 @@ def tela_configuracoes():
             if config.get("cor_tema", "blue") in opcoes_tema else 0
         cor_tema = c1.selectbox("Tema Padrao Base:", opcoes_tema, index=idx_tema)
 
-        cor_principal = c1.text_input("Cor Principal (hex):", value=config.get("cor_principal", "#1f538d"))
-        cor_secundaria = c1.text_input("Cor Secundaria (hex):", value=config.get("cor_secundaria", "#14375e"))
+        cor_principal = c1.color_picker("Cor Principal:", value=config.get("cor_principal", "#1f538d"))
+        cor_secundaria = c1.color_picker("Cor Secundaria:", value=config.get("cor_secundaria", "#14375e"))
         c1.caption("As cores customizadas valem quando o 'Tema Padrao Base' for 'Personalizado'.")
 
         opcoes_fonte = ["Arial", "Times New Roman", "Calibri", "Tahoma"]
