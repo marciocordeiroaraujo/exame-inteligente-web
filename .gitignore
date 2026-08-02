@@ -1,0 +1,11 @@
+# Dados locais do app (nao devem ir para o repositorio publico)
+*.json
+dados_usuarios/
+imagens_apoio/
+backup_json/
+backup_imgs/
+*.xlsx
+*.docx
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
