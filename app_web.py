@@ -194,9 +194,27 @@ def _obter_banco_url():
 BANCO_ATIVO = bool(_obter_banco_url()) and _TEM_PSYCOPG2
 
 def _conectar_banco():
-    conn = psycopg2.connect(_obter_banco_url(), sslmode="require")
+    url = _obter_banco_url()
+    if "?" in url:
+        url = url.split("?", 1)[0]
+    conn = psycopg2.connect(url, sslmode="require")
     conn.autocommit = True
     return conn
+
+def _com_conexao(fn):
+    conn = None
+    try:
+        conn = _conectar_banco()
+        with conn.cursor() as cur:
+            return fn(conn, cur)
+    except Exception:
+        raise
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 _TABELAS_OK = False
 
@@ -204,7 +222,7 @@ def _garantir_tabelas():
     global _TABELAS_OK
     if _TABELAS_OK:
         return
-    with _conectar_banco() as conn, conn.cursor() as cur:
+    def _criar(conn, cur):
         cur.execute("""
             CREATE TABLE IF NOT EXISTS app_dados (
                 chave text PRIMARY KEY,
@@ -219,15 +237,17 @@ def _garantir_tabelas():
                 atualizado_em timestamptz NOT NULL DEFAULT now()
             )
         """)
+    _com_conexao(_criar)
     _TABELAS_OK = True
 
 def db_get_json(chave):
     try:
         _garantir_tabelas()
-        with _conectar_banco() as conn, conn.cursor() as cur:
+        def _get(conn, cur):
             cur.execute("SELECT valor FROM app_dados WHERE chave=%s", (chave,))
             linha = cur.fetchone()
             return linha[0] if linha else None
+        return _com_conexao(_get)
     except Exception:
         return None
 
@@ -235,36 +255,41 @@ def db_set_json(chave, dados):
     try:
         _garantir_tabelas()
         texto = json.dumps(dados, ensure_ascii=False)
-        with _conectar_banco() as conn, conn.cursor() as cur:
+        def _set(conn, cur):
             cur.execute(
                 "INSERT INTO app_dados (chave, valor, atualizado_em) "
                 "VALUES (%s, %s::jsonb, now()) "
                 "ON CONFLICT (chave) DO UPDATE "
                 "SET valor=EXCLUDED.valor, atualizado_em=now()",
                 (chave, texto))
+        _com_conexao(_set)
     except Exception as e:
         print("[BANCO] Erro ao salvar", chave, ":", e)
 
 def db_get_bytes(chave):
     try:
         _garantir_tabelas()
-        with _conectar_banco() as conn, conn.cursor() as cur:
+        def _get(conn, cur):
             cur.execute("SELECT dados FROM app_imagens WHERE chave=%s", (chave,))
             linha = cur.fetchone()
             return bytes(linha[0]) if linha else None
+        return _com_conexao(_get)
     except Exception:
         return None
 
 def db_set_bytes(chave, dados):
     try:
         _garantir_tabelas()
-        with _conectar_banco() as conn, conn.cursor() as cur:
+        def _set(conn, cur):
             cur.execute(
                 "INSERT INTO app_imagens (chave, dados, atualizado_em) "
                 "VALUES (%s, %s, now()) "
                 "ON CONFLICT (chave) DO UPDATE "
                 "SET dados=EXCLUDED.dados, atualizado_em=now()",
                 (chave, psycopg2.Binary(bytes(dados))))
+        _com_conexao(_set)
+    except Exception as e:
+        print("[BANCO] Erro ao salvar imagem", chave, ":", e)
     except Exception as e:
         print("[BANCO] Erro ao salvar imagem", chave, ":", e)
 
