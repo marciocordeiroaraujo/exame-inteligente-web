@@ -408,6 +408,19 @@ def salvar_json(caminho, dados):
     with open(caminho, "w", encoding="utf-8") as arquivo:
         json.dump(dados, arquivo, ensure_ascii=False, indent=4)
 
+# ---- Chave de API da IA (salva por usuario, para nao digitar toda vez) ----
+def carregar_chave_ia():
+    caminho = caminho_usuario("chave_ia.json")
+    dados = carregar_json(caminho, {})
+    if isinstance(dados, dict):
+        return str(dados.get("chave", "") or "")
+    return ""
+
+def salvar_chave_ia(chave):
+    caminho = caminho_usuario("chave_ia.json")
+    if caminho:
+        salvar_json(caminho, {"chave": str(chave or "").strip()})
+
 # ---- Contas de usuario (login local em JSON) ----
 def carregar_usuarios():
     dados = carregar_json(ARQUIVO_USUARIOS, [])
@@ -1123,6 +1136,38 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] .stButton > button[kind="secondary"] {
     background: var(--card-bg) !important; color: var(--cor-texto) !important;
     border: 1px solid var(--borda) !important;
+}
+/* ---------------- Popovers (janelas flutuantes) legiveis ----------------
+   O Streamlit 1.58 usa stPopover / stPopoverBody / stPopoverButton.
+   Garante fundo claro (nunca preto) e texto escuro, mesmo em navegador
+   com modo escuro forcado. */
+[data-testid="stPopover"] {background: var(--card-bg) !important;}
+[data-testid="stPopoverBody"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    border: 1px solid var(--borda) !important; border-radius: 12px;
+}
+[data-testid="stPopoverBody"] p, [data-testid="stPopoverBody"] label,
+[data-testid="stPopoverBody"] .stMarkdown, [data-testid="stPopoverBody"] h1,
+[data-testid="stPopoverBody"] h2, [data-testid="stPopoverBody"] h3,
+[data-testid="stPopoverBody"] h4, [data-testid="stPopoverBody"] h5,
+[data-testid="stPopoverBody"] a, [data-testid="stPopoverBody"] li {
+    color: var(--cor-texto) !important;
+}
+[data-testid="stPopoverBody"] input, [data-testid="stPopoverBody"] textarea,
+[data-testid="stPopoverBody"] div[data-baseweb="input"],
+[data-testid="stPopoverBody"] div[data-baseweb="input"] > div,
+[data-testid="stPopoverBody"] div[data-baseweb="select"] > div,
+[data-testid="stPopoverBody"] div[data-baseweb="select"] input,
+[data-testid="stPopoverBody"] [data-baseweb="select"] span {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+}
+[data-testid="stPopoverBody"] .stButton > button[kind="secondary"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    border: 1px solid var(--borda) !important;
+}
+[data-testid="stPopoverBody"] [data-baseweb="popover"] [role="listbox"],
+[data-testid="stPopoverBody"] [data-baseweb="menu"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
 }
 .stAlert {border-radius: 10px; border: 1px solid var(--borda);}
 [data-testid="stDataFrame"] {border: 1px solid var(--borda); border-radius: 12px; overflow: hidden;}
@@ -3696,6 +3741,10 @@ def dialog_revisar_questao():
 
 
 def tela_importar():
+    # Descritor escolhido na lista de sugestoes: aplica antes de criar o widget
+    pendente = st.session_state.pop("ia_tema_pendente", None)
+    if pendente:
+        st.session_state["ia_tema"] = pendente
     st.markdown("### Importar Questoes com IA")
     st.caption("A IA gera as questoes usando a **sua propria chave de API** (Gemini ou ChatGPT). "
                "A chave NAO e salva no app e o consumo e cobrado na sua conta do servico.")
@@ -3709,8 +3758,23 @@ def tela_importar():
         else:
             st.error(info_ia[1])
 
+    chave_salva = carregar_chave_ia()
     chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
+                          value=chave_salva,
+                          autocomplete="new-password",
                           placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
+    if chave_salva:
+        st.caption("Sua chave ja esta salva nesta conta; nao precisa digitar de novo.")
+    c_salvar = st.columns([2, 1])
+    salvar_chave_opt = c_salvar[0].checkbox("Salvar minha chave nesta conta",
+                                            value=True, key="ia_salvar_chave")
+    if chave_salva and c_salvar[1].button("Apagar chave salva",
+                                          key="ia_apagar_chave",
+                                          use_container_width=True):
+        salvar_chave_ia("")
+        st.session_state["ia_info"] = ("info",
+                                       "Chave de API removida da sua conta.")
+        st.rerun()
 
     detec = ""
     ch = chave.strip().lower()
@@ -3759,16 +3823,16 @@ def tela_importar():
     else:
         disciplina = disc_sel
 
-    sugs = _sugerir_descritores(tema)
+    sugs = _sugerir_descritores(tema, limite=6)
     if sugs:
-        st.caption("Sugestoes: " + " | ".join(f":blue[{s}]" for s in sugs))
-    desc_pronto = st.selectbox("Ou escolha um descritor pronto da lista:",
-                               ["\u2014 escolher da lista \u2014"] + DESCRITORES_SAEB,
-                               key="ia_desc_pronto")
-    if desc_pronto != "\u2014 escolher da lista \u2014":
-        st.session_state["ia_tema"] = desc_pronto
-        st.session_state["ia_desc_pronto"] = "\u2014 escolher da lista \u2014"
-        st.rerun()
+        st.caption("Descritores encontrados (clique para usar):")
+        for i, s in enumerate(sugs):
+            if st.button(f"  {s}", key=f"ia_sug_{i}", use_container_width=True,
+                         help="Clique para preencher o tema com este descritor"):
+                st.session_state["ia_tema_pendente"] = s
+                st.rerun()
+    if tema.strip() and not sugs:
+        st.caption("Nenhum descritor cadastrado encontrado para esse texto.")
 
     c3, c4, c5 = st.columns(3)
     qtd = int(c3.number_input("Quantidade:", min_value=1, max_value=20, value=5, step=1,
@@ -3802,6 +3866,10 @@ def tela_importar():
         elif not tema.strip():
             st.error("Informe o tema / assunto das questoes.")
         else:
+            if salvar_chave_opt and chave.strip() != chave_salva:
+                salvar_chave_ia(chave.strip())
+                st.session_state["ia_info"] = ("info",
+                                               "Chave de API salva nesta conta.")
             prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, n_alt, extra)
             try:
                 with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
