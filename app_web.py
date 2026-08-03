@@ -597,6 +597,17 @@ def carregar_anotacoes():
 def carregar_turmas():
     return carregar_json(caminho_usuario(ARQUIVO_TURMAS), {})
 
+CABECALHOS_ALUNOS = {"nome", "nomes", "aluno", "alunos", "estudante", "estudantes", "professor"}
+
+def normalizar_nome(nome):
+    """Padroniza um nome: remove simbolos (so sobram letras e espacos),
+    primeira letra de cada palavra em maiuscula e o resto em minuscula."""
+    if nome is None:
+        return ""
+    texto = "".join(c if c.isalpha() or c == " " else " " for c in str(nome))
+    palavras = texto.split()
+    return " ".join(p[:1].upper() + p[1:].lower() for p in palavras)
+
 def carregar_config_grade():
     try:
         return int(carregar_json(caminho_usuario(ARQUIVO_CONFIG_GRADE), {}).get("max_aulas", 6))
@@ -899,6 +910,35 @@ div[class*="st-key-card_"] {
     box-shadow: 0 1px 3px rgba(0,0,0,.05); transition: box-shadow .2s ease;
 }
 div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
+
+/* Lista de alunos (Turmas & Alunos): contorno ao redor da lista */
+div[class*="st-key-lista_alunos"] {
+    border: 1.5px solid @@COR_BORDA@@;
+    border-radius: 14px;
+    padding: 10px 14px 4px 14px;
+    background: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+div[class*="st-key-lista_alunos"] div[data-testid="stMarkdownContainer"] p {
+    font-weight: 400; color: var(--cor-texto); line-height: 1.4;
+}
+.aluno-num {
+    display: inline-block; min-width: 30px; margin-right: 4px;
+    font-size: .72rem; font-weight: 700; color: var(--cor-cinza);
+    letter-spacing: .03em;
+}
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child {
+    display: flex; align-items: center; justify-content: flex-end;
+}
+div[class*="st-key-aluno_"] button {
+    min-width: 34px; height: 34px; padding: 0 !important;
+    border-radius: 9px; border: 1px solid var(--borda);
+    background: transparent; color: var(--cor-cinza); font-weight: 700;
+    transition: all .15s ease;
+}
+div[class*="st-key-aluno_"] button:hover {
+    background: #fee2e2; color: #b91c1c; border-color: #fca5a5;
+}
 
 /* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
    com borda superior colorida em cada campo e fundo branco puro. */
@@ -2648,10 +2688,10 @@ def tela_turmas():
         novo_aluno = l_add.text_input("Nome do aluno", placeholder="Ex: Ana Clara", key="novo_aluno")
         c1, c2 = st.columns(2)
         if c1.button("+ Adicionar aluno", type="primary", use_container_width=True):
-            nome = novo_aluno.strip()
+            nome = normalizar_nome(novo_aluno)
             if not nome:
                 st.error("Digite o nome do aluno.")
-            elif nome in dados_turmas.get(turma_atual, []):
+            elif nome.lower() in {normalizar_nome(a).lower() for a in dados_turmas.get(turma_atual, [])}:
                 st.warning("Este aluno ja esta cadastrado nesta turma.")
             else:
                 dados_turmas.setdefault(turma_atual, []).append(nome)
@@ -2661,29 +2701,45 @@ def tela_turmas():
             st.session_state["confirmar_limpar_turma"] = turma_atual
             st.rerun()
 
-        alunos = sorted(dados_turmas.get(turma_atual, []))
+        alunos = [normalizar_nome(a) for a in dados_turmas.get(turma_atual, [])]
+        alunos = sorted([a for a in alunos if a], key=lambda x: x.lower())
+        vistos, alunos_unicos = set(), []
+        for a in alunos:
+            chave = a.lower()
+            if chave not in vistos:
+                vistos.add(chave)
+                alunos_unicos.append(a)
+        alunos = alunos_unicos
         if not alunos:
             st.caption("Nenhum aluno cadastrado nesta turma ainda.")
-        for i, aluno in enumerate(alunos, 1):
-            c1, c2 = st.columns([6, 1])
-            c1.markdown(f"**{i}. {aluno}**")
-            if c2.button("x", key=f"aluno_{turma_atual}_{aluno}"):
-                dados_turmas[turma_atual] = [a for a in dados_turmas[turma_atual] if a != aluno]
-                salvar_turmas(dados_turmas)
-                st.rerun()
+        else:
+            with st.container(key="lista_alunos"):
+                for i, aluno in enumerate(alunos, 1):
+                    c1, c2 = st.columns([6, 1])
+                    c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
+                                unsafe_allow_html=True)
+                    if c2.button("x", key=f"aluno_{turma_atual}_{i}"):
+                        alvo = aluno.lower()
+                        dados_turmas[turma_atual] = [
+                            a for a in dados_turmas[turma_atual]
+                            if normalizar_nome(a).lower() != alvo]
+                        salvar_turmas(dados_turmas)
+                        st.rerun()
 
 def processar_arquivo_alunos(arquivo, turma_atual, dados_turmas):
     nome_arq = arquivo.name.lower()
-    novos = []
+    novos_raw = []
     try:
         if nome_arq.endswith((".xlsx", ".xls")):
             wb = openpyxl.load_workbook(io.BytesIO(arquivo.read()), data_only=True)
             ws = wb.active
             for row in ws.iter_rows(values_only=True):
-                if row and row[0]:
-                    nome = str(row[0]).strip()
-                    if nome and nome.lower() not in ["nome", "alunos", "estudante", "aluno"]:
-                        novos.append(nome)
+                if not row:
+                    continue
+                celula = row[0]
+                if celula is None or str(celula).strip() == "":
+                    continue
+                novos_raw.append(str(celula).strip())
         else:
             conteudo = arquivo.read()
             texto = None
@@ -2697,24 +2753,34 @@ def processar_arquivo_alunos(arquivo, turma_atual, dados_turmas):
                 texto = conteudo.decode("utf-8", errors="ignore")
             leitor = csv.reader(io.StringIO(texto), delimiter=";")
             for linha in leitor:
-                if linha:
-                    nome = linha[0].strip()
-                    if nome and nome.lower() not in ["nome", "alunos", "estudante", "aluno"]:
-                        novos.append(nome)
-            if len(novos) <= 1:
-                novos = [l.strip() for l in texto.splitlines()
-                         if l.strip() and l.strip().lower() not in ["nome", "alunos", "estudante", "aluno"]]
+                if not linha or linha[0].strip() == "":
+                    continue
+                novos_raw.append(linha[0].strip())
+            if len(novos_raw) <= 1:
+                novos_raw = [l.strip() for l in texto.splitlines() if l.strip()]
     except Exception as e:
         return ("erro", f"Nao foi possivel ler o arquivo: {e}")
+
+    novos, vistos = [], set()
+    for nome in novos_raw:
+        padrao = normalizar_nome(nome)
+        if not padrao or padrao.lower() in CABECALHOS_ALUNOS:
+            continue
+        chave = padrao.lower()
+        if chave not in vistos:
+            vistos.add(chave)
+            novos.append(padrao)
 
     if not novos:
         return ("vazio", "O arquivo parece estar vazio ou sem nomes na primeira coluna.")
 
     dados_turmas.setdefault(turma_atual, [])
+    existentes = {normalizar_nome(a).lower() for a in dados_turmas[turma_atual]}
     adicionados = 0
     for nome in novos:
-        if nome not in dados_turmas[turma_atual]:
+        if nome.lower() not in existentes:
             dados_turmas[turma_atual].append(nome)
+            existentes.add(nome.lower())
             adicionados += 1
     salvar_turmas(dados_turmas)
     return ("ok", f"{adicionados} aluno(s) importado(s) para a turma {turma_atual}!")
