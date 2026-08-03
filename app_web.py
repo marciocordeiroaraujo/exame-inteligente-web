@@ -3386,9 +3386,12 @@ def montar_aba_stats(avaliacoes):
         file_name=f"Relatorio_{av['turma']}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary")
-
 import urllib.request
 import urllib.error
+
+# Modelos internos (escolhidos automaticamente; troque aqui se um cair em desuso)
+MODELO_GEMINI = "gemini-3.5-flash"
+MODELO_OPENAI = "gpt-4o-mini"
 
 # =====================================================================
 # 16. TELA: CADASTRAR NOVA QUESTAO
@@ -3463,7 +3466,36 @@ def tela_cadastrar():
 # =====================================================================
 # 17. TELA: IMPORTAR QUESTOES COM IA (via API do usuario)
 # =====================================================================
-def _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, extra):
+def _sugerir_descritores(texto, limite=4):
+    t = (texto or "").strip()
+    if not t:
+        return []
+    tl = t.lower()
+    exatas = []
+    parciais = []
+    for desc in DESCRITORES_SAEB:
+        dl = desc.lower()
+        if tl in dl:
+            codigo = desc.split(" - ")[0].lower()
+            (exatas if codigo == tl else parciais).append(desc)
+    return (exatas + parciais)[:limite]
+
+
+def _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, n_alt, extra):
+    if tipo == "Multipla escolha":
+        letras = "ABCDEFGH"[:n_alt]
+        estrutura = ('[ { "tema": "descritor/tema", "dificuldade": "Facil|Medio|Dificil", '
+                     '"enunciado": "texto de contexto ou situacao", '
+                     '"pergunta_direta": "comando objetivo da questao", '
+                     '"alternativas": { ' +
+                     ", ".join(f'"{l}": "opcao {l}"' for l in letras) +
+                     ' }, "gabarito": "' + letras[0] + '" } ]')
+    else:
+        estrutura = ('[ { "tema": "descritor/tema", "dificuldade": "Facil|Medio|Dificil", '
+                     '"enunciado": "texto de contexto ou situacao", '
+                     '"pergunta_direta": "comando objetivo da questao", '
+                     '"alternativas": {}, "gabarito": "Discursiva" } ]')
+
     linhas = [
         f"Crie exatamente {qtd} questoes de prova com as caracteristicas abaixo.",
         f"- Disciplina: {disciplina.strip() or 'Nao informada'}",
@@ -3471,20 +3503,22 @@ def _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, extra):
         f"- Nivel de dificuldade: {dificuldade}",
         f"- Tipo: {tipo}",
     ]
+    if tipo == "Multipla escolha":
+        linhas.append(f"- Cada questao deve ter exatamente {n_alt} alternativas "
+                      f"(letras {', '.join(letras)}).")
     if extra and extra.strip():
         linhas.append(f"- Instrucoes adicionais: {extra.strip()}")
     linhas.append("")
     linhas.append("Responda APENAS com JSON valido, sem texto adicional, "
                  "usando exatamente esta estrutura de lista:")
-    linhas.append('[ { "tema": "descritor/tema", "dificuldade": "Facil|Medio|Dificil", '
-                 '"enunciado": "texto de contexto ou situacao", '
-                 '"pergunta_direta": "comando objetivo da questao", '
-                 '"alternativas": { "A": "opcao A", "B": "opcao B", "C": "opcao C", "D": "opcao D" }, '
-                 '"gabarito": "A" } ]')
+    linhas.append(estrutura)
     linhas.append("")
     linhas.append("Regras:")
-    linhas.append("- Multipla escolha: preencha as alternativas A-D e o gabarito com a letra correta.")
-    linhas.append('- Discursiva: deixe "alternativas" como {} e "gabarito" como "Discursiva".')
+    if tipo == "Multipla escolha":
+        linhas.append(f"- Preencha as alternativas com as letras {', '.join(letras)} e o gabarito "
+                      f"com a letra correta entre elas.")
+    else:
+        linhas.append('- Deixe "alternativas" como {} e "gabarito" como "Discursiva".')
     linhas.append("- O enunciado deve trazer o contexto (texto, tabela, situacao-problema); "
                  "a pergunta_direta deve ser o comando.")
     linhas.append(f"- Nao repita questoes e gere exatamente {qtd} questoes.")
@@ -3541,46 +3575,223 @@ def chamar_ia_openai(api_key, modelo, prompt):
         raise ValueError("A OpenAI nao retornou um texto valido.")
 
 
+def _importar_questao_revista(q, disc):
+    banco = carregar_banco()
+    novo_id = max([b.get("id", 0) for b in banco], default=0) + 1
+    banco.append({
+        "id": novo_id,
+        "disciplina": (str(q.get("disciplina") or "").strip() or disc or "Geral"),
+        "tema": str(q.get("tema", "")).strip(),
+        "dificuldade": str(q.get("dificuldade", "Medio")),
+        "enunciado": str(q.get("enunciado", "")),
+        "imagem": str(q.get("imagem", "")),
+        "pergunta_direta": str(q.get("pergunta_direta", "")),
+        "alternativas": q.get("alternativas") or {},
+        "gabarito": str(q.get("gabarito", "")),
+    })
+    salvar_banco(banco)
+    st.session_state["ia_importadas"] = st.session_state.get("ia_importadas", 0) + 1
+
+
+def _avancar_revisao():
+    lista = st.session_state.get("ia_revisar") or []
+    idx = st.session_state.get("ia_rev_idx", 0)
+    if 0 <= idx < len(lista):
+        lista.pop(idx)
+    st.session_state["ia_editando"] = False
+    if not lista:
+        st.session_state.pop("ia_revisar", None)
+        n = st.session_state.get("ia_importadas", 0)
+        if n > 0:
+            st.session_state["ia_info"] = ("ok",
+                                           f"{n} questao(oes) importada(s) para o catalogo!")
+        else:
+            st.session_state["ia_info"] = ("info",
+                                           "Revisao concluida. Nenhuma questao foi importada.")
+    else:
+        st.session_state["ia_rev_idx"] = min(idx, len(lista) - 1)
+
+
+@st.dialog("Revisar Questao")
+def dialog_revisar_questao():
+    lista = st.session_state.get("ia_revisar") or []
+    if not lista:
+        st.info("Nenhuma questao para revisar.")
+        return
+    idx = st.session_state.get("ia_rev_idx", 0)
+    if idx >= len(lista):
+        idx = len(lista) - 1
+        st.session_state["ia_rev_idx"] = idx
+    q = lista[idx]
+    disc_padrao = st.session_state.get("ia_disciplina_gerada", "Geral")
+
+    st.caption(f"Questao {idx + 1} de {len(lista)}")
+    st.markdown(f"**{q.get('tema', 'Sem tema')}** \u00b7 {q.get('dificuldade', 'Medio')}"
+                f" \u00b7 Gabarito: {q.get('gabarito', '-')}")
+    if q.get("enunciado"):
+        st.markdown("**Enunciado / contexto:**")
+        st.write(q.get("enunciado"))
+    if q.get("pergunta_direta"):
+        st.markdown("**Pergunta / comando:**")
+        st.write(q.get("pergunta_direta"))
+    alt = q.get("alternativas") or {}
+    if alt:
+        st.markdown("**Alternativas:**")
+        for letra, txt in alt.items():
+            if txt:
+                st.markdown(f"{letra}) {txt}")
+
+    st.markdown("---")
+    if not st.session_state.get("ia_editando"):
+        c1, c2, c3 = st.columns(3)
+        if c1.button("Importar no catalogo", type="primary", use_container_width=True,
+                     key="rev_importar"):
+            _importar_questao_revista(q, disc_padrao)
+            _avancar_revisao()
+        if c2.button("Editar", use_container_width=True, key="rev_editar"):
+            st.session_state["ia_editando"] = True
+            st.rerun()
+        if c3.button("Excluir", use_container_width=True, key="rev_excluir"):
+            _avancar_revisao()
+    else:
+        st.markdown("**Editando questao (lembre-se de salvar):**")
+        e_tema = st.text_input("Tema / descritor:", value=q.get("tema", ""), key="rev_tema")
+        e_disc = st.text_input("Disciplina:", value=q.get("disciplina") or disc_padrao,
+                               key="rev_disciplina")
+        e_dif = st.selectbox("Nivel:", ["Facil", "Medio", "Dificil"],
+                             index=(["Facil", "Medio", "Dificil"].index(q.get("dificuldade", "Medio"))
+                                    if q.get("dificuldade") in ["Facil", "Medio", "Dificil"] else 1),
+                             key="rev_dificuldade")
+        e_enun = st.text_area("Enunciado / contexto:", value=q.get("enunciado", ""), height=90,
+                              key="rev_enunciado")
+        e_perg = st.text_area("Pergunta / comando:", value=q.get("pergunta_direta", ""), height=60,
+                              key="rev_pergunta")
+        st.markdown("**Alternativas (em branco = remove; todas em branco = discursiva):**")
+        letras_edit = "ABCDEFGH"[: max(len(alt), 4)]
+        for letra in letras_edit:
+            st.text_input(f"Alternativa {letra})", value=alt.get(letra, ""), key=f"rev_alt_{letra}")
+        e_gab = st.text_input("Gabarito:", value=str(q.get("gabarito", "")), key="rev_gabarito")
+        c1, c2 = st.columns(2)
+        if c1.button("Salvar alteracoes", type="primary", use_container_width=True,
+                     key="rev_salvar"):
+            alt_nova = {}
+            for letra in letras_edit:
+                v = (st.session_state.get(f"rev_alt_{letra}") or "").strip()
+                if v:
+                    alt_nova[letra] = v
+            lista[idx].update({
+                "tema": e_tema.strip(),
+                "disciplina": e_disc.strip(),
+                "dificuldade": e_dif,
+                "enunciado": e_enun.strip(),
+                "pergunta_direta": e_perg.strip(),
+                "gabarito": e_gab.strip(),
+            })
+            lista[idx]["alternativas"] = alt_nova
+            st.session_state["ia_editando"] = False
+            st.rerun()
+        if c2.button("Cancelar edicao", use_container_width=True, key="rev_cancelar"):
+            st.session_state["ia_editando"] = False
+            st.rerun()
+
+
 def tela_importar():
     st.markdown("### Importar Questoes com IA")
-    st.caption("A IA gera as questoes usando a sua propria chave de API (Gemini, ChatGPT etc.). "
+    st.caption("A IA gera as questoes usando a **sua propria chave de API** (Gemini ou ChatGPT). "
                "A chave NAO e salva no app e o consumo e cobrado na sua conta do servico.")
 
     info_ia = st.session_state.pop("ia_info", None)
     if info_ia:
         if info_ia[0] == "ok":
             st.success(info_ia[1])
+        elif info_ia[0] == "info":
+            st.info(info_ia[1])
         else:
             st.error(info_ia[1])
 
-    provedor = st.selectbox("Provedor de IA:", ["Google Gemini", "OpenAI / ChatGPT"],
-                            key="ia_provedor")
     chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
                           placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
-    if provedor == "Google Gemini":
-        modelo = st.selectbox("Modelo:",
-                              ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite",
-                               "gemini-3.1-pro-preview"],
-                              key="ia_modelo",
-                              help="gemini-3.5-flash e o modelo estavel atual. "
-                                   "Modelos antigos (ex: gemini-2.0-flash) foram "
-                                   "descontinuados pela Google e retornam erro 404.")
-    else:
-        modelo = st.text_input("Modelo:", value="gpt-4o-mini", key="ia_modelo",
-                               help="Deixe como esta para usar o modelo padrao.")
+
+    detec = ""
+    ch = chave.strip().lower()
+    if ch.startswith("aiza"):
+        detec = "Google Gemini"
+    elif ch.startswith("sk-"):
+        detec = "OpenAI / ChatGPT"
+    if detec and st.session_state.get("ia_provedor") != detec:
+        st.session_state["ia_provedor"] = detec
+        st.rerun()
+
+    with st.popover("\u2139\ufe0f Como obter minha chave? (tutorial)", use_container_width=True):
+        prov = st.session_state.get("ia_provedor", "Google Gemini")
+        if prov == "Google Gemini":
+            st.markdown(
+                "**Gemini (Google):**\n\n"
+                "1. Abra o **Google AI Studio**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)\n\n"
+                "2. Entre com sua conta Google.\n\n"
+                "3. Clique em **Create API key** (criar chave).\n\n"
+                "4. Escolha um projeto (ou crie um) e confirme com **Create**.\n\n"
+                "5. Copie a chave gerada (comeca com **AIza...**) e cole no campo acima.")
+        else:
+            st.markdown(
+                "**OpenAI (ChatGPT):**\n\n"
+                "1. Abra: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)\n\n"
+                "2. Entre com sua conta OpenAI.\n\n"
+                "3. Clique em **Create new secret key**.\n\n"
+                "4. Copie a chave gerada (comeca com **sk-...**) e cole no campo acima.")
+        st.markdown("")
+        st.caption("Dica: o app detecta sozinho o provedor pelo inicio da chave "
+                   "(AIza = Gemini, sk- = OpenAI).")
+
+    provedor = st.selectbox("Provedor de IA:", ["Google Gemini", "OpenAI / ChatGPT"],
+                            key="ia_provedor")
+    modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
+    st.caption(f"Modelo de IA: **{modelo_interno}** (escolhido automaticamente pelo app).")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
-    disciplina = c1.text_input("Disciplina:", key="ia_disciplina",
-                               placeholder="Ex: Matematica")
+    opcoes_disc = DISCIPLINAS_COMUNS + ["Outra disciplina..."]
+    disc_sel = c1.selectbox("Disciplina:", opcoes_disc, key="ia_disciplina")
     tema = c2.text_input("Tema / assunto / descritor:", key="ia_tema",
-                         placeholder="Ex: D15 - Resolver problema envolvendo numeros racionais")
+                         placeholder="Ex: D15 - Resolver problema...")
+    if disc_sel == "Outra disciplina...":
+        disciplina = c1.text_input("Digite a disciplina:", key="ia_disc_outra")
+    else:
+        disciplina = disc_sel
+
+    sugs = _sugerir_descritores(tema)
+    if sugs:
+        st.caption("Sugestoes: " + " | ".join(f":blue[{s}]" for s in sugs))
+    desc_pronto = st.selectbox("Ou escolha um descritor pronto da lista:",
+                               ["\u2014 escolher da lista \u2014"] + DESCRITORES_SAEB,
+                               key="ia_desc_pronto")
+    if desc_pronto != "\u2014 escolher da lista \u2014":
+        st.session_state["ia_tema"] = desc_pronto
+        st.session_state["ia_desc_pronto"] = "\u2014 escolher da lista \u2014"
+        st.rerun()
+
     c3, c4, c5 = st.columns(3)
     qtd = int(c3.number_input("Quantidade:", min_value=1, max_value=20, value=5, step=1,
                               key="ia_qtd"))
     dificuldade = c4.selectbox("Nivel de dificuldade:", ["Facil", "Medio", "Dificil"],
                                key="ia_dificuldade")
-    tipo = c5.selectbox("Tipo:", ["Multipla escolha (A-D)", "Discursiva"], key="ia_tipo")
+    tipo = c5.selectbox("Tipo:", ["Multipla escolha", "Discursiva"], key="ia_tipo")
+
+    n_alt = 4
+    if tipo == "Multipla escolha":
+        c6, c7 = st.columns(2)
+        alts_sel = c6.selectbox("Alternativas:",
+                                ["4 alternativas (A-D)", "5 alternativas (A-E)",
+                                 "Personalizado"],
+                                key="ia_alts")
+        if alts_sel == "5 alternativas (A-E)":
+            n_alt = 5
+        elif alts_sel == "Personalizado":
+            n_alt = int(c7.number_input("Quantidade de alternativas:", min_value=2, max_value=6,
+                                        value=4, step=1, key="ia_alts_pers"))
+        else:
+            n_alt = 4
+
     extra = st.text_area("Instrucoes extras (opcional):", key="ia_extra",
                          placeholder="Ex: Incluir apenas questoes do 8o ano, sem usar porcentagem...")
 
@@ -3591,86 +3802,40 @@ def tela_importar():
         elif not tema.strip():
             st.error("Informe o tema / assunto das questoes.")
         else:
-            prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, extra)
+            prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, n_alt, extra)
             try:
                 with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
                     if provedor == "Google Gemini":
-                        texto = chamar_ia_gemini(chave.strip(),
-                                                 modelo.strip() or "gemini-3.5-flash", prompt)
+                        texto = chamar_ia_gemini(chave.strip(), modelo_interno, prompt)
                     else:
-                        texto = chamar_ia_openai(chave.strip(),
-                                                 modelo.strip() or "gpt-4o-mini", prompt)
+                        texto = chamar_ia_openai(chave.strip(), modelo_interno, prompt)
                 novas = _extrair_json_ia(texto)
                 if not isinstance(novas, list):
                     raise ValueError("A IA nao retornou uma lista de questoes.")
-                st.session_state["ia_preview"] = novas
+                novas = [q for q in novas if isinstance(q, dict)]
+                if not novas:
+                    raise ValueError("A IA nao retornou nenhuma questao valida.")
+                st.session_state["ia_revisar"] = novas
+                st.session_state["ia_rev_idx"] = 0
+                st.session_state["ia_importadas"] = 0
+                st.session_state["ia_editando"] = False
+                st.session_state["ia_disciplina_gerada"] = disciplina.strip() or "Geral"
             except urllib.error.HTTPError as e:
                 detalhe = e.read().decode("utf-8", errors="ignore")[:300]
                 msg = (f"Erro {e.code} ao chamar o servico de IA. "
-                       f"Verifique a chave e o modelo.\n\n{detalhe}")
+                       f"Verifique a chave.\n\n{detalhe}")
                 if e.code == 404 and "model" in detalhe.lower():
                     msg += ("\n\nDica: o modelo pode ter sido descontinuado pelo provedor. "
-                            "No campo 'Modelo', escolha um modelo atual "
-                            "(ex: gemini-3.5-flash para o Gemini).")
+                            "Avise o suporte do app para atualizar o modelo interno.")
                 st.error(msg)
             except (urllib.error.URLError, TimeoutError) as e:
                 st.error("Nao foi possivel conectar ao servico de IA. Verifique sua internet.")
             except (ValueError, json.JSONDecodeError) as e:
                 st.error(f"A IA nao retornou um JSON valido. Tente novamente.\n\nDetalhe: {e}")
 
-    preview = st.session_state.get("ia_preview")
-    if preview:
-        st.markdown("---")
-        st.markdown("### Revisao das questoes geradas")
-        questoes = [q for q in preview if isinstance(q, dict)]
-        if not questoes:
-            st.warning("Nenhuma questao valida na resposta da IA.")
-            return
-        for i, q in enumerate(questoes):
-            alt = q.get("alternativas", {}) or {}
-            with st.container(border=True):
-                c_chk, c_txt = st.columns([1, 9])
-                c_chk.checkbox("Importar", value=True, key=f"ia_ok_{i}")
-                c_txt.markdown(
-                    f"**{q.get('tema', 'Sem tema')}** \u00b7 {q.get('dificuldade', 'Medio')}"
-                    f" \u00b7 Gabarito: {q.get('gabarito', '-')}")
-                if q.get("enunciado"):
-                    st.caption("Enunciado / contexto:")
-                    st.write(q.get("enunciado"))
-                if q.get("pergunta_direta"):
-                    st.caption("Pergunta / comando:")
-                    st.write(q.get("pergunta_direta"))
-                if alt:
-                    for letra, txt_alt in alt.items():
-                        if txt_alt:
-                            st.markdown(f"{letra}) {txt_alt}")
-        if st.button("Importar selecionadas para o catalogo", type="primary",
-                     use_container_width=True, key="ia_importar"):
-            banco = carregar_banco()
-            maior_id = max([b.get("id", 0) for b in banco], default=0)
-            add = 0
-            for i, q in enumerate(questoes):
-                if st.session_state.get(f"ia_ok_{i}", False):
-                    maior_id += 1
-                    banco.append({
-                        "id": maior_id,
-                        "tema": str(q.get("tema", "")).strip(),
-                        "dificuldade": str(q.get("dificuldade", "Medio")),
-                        "enunciado": str(q.get("enunciado", "")),
-                        "imagem": str(q.get("imagem", "")),
-                        "pergunta_direta": str(q.get("pergunta_direta", "")),
-                        "alternativas": q.get("alternativas", {}) or {},
-                        "gabarito": str(q.get("gabarito", "")),
-                    })
-                    add += 1
-            if add > 0:
-                salvar_banco(banco)
-                st.session_state.pop("ia_preview", None)
-                st.session_state["ia_info"] = ("ok",
-                                               f"{add} questao(oes) importada(s) para o catalogo!")
-                st.rerun()
-            else:
-                st.warning("Nenhuma questao selecionada para importar.")
+    # Revisao em janela (dialog): chamada incondicional para permanecer aberta entre acoes
+    if st.session_state.get("ia_revisar"):
+        dialog_revisar_questao()
 
 # =====================================================================
 # 17.1 TELA UNIFICADA: CENTRAL DE QUESTOES
@@ -3760,7 +3925,10 @@ def tela_catalogo():
     st.caption(f"Mostrando {len(questoes)} questoes")
     for q in questoes:
         with st.container(border=True):
-            st.markdown(f"**📌 {q.get('tema', 'Sem tema')}** | Nivel: {q.get('dificuldade', '')} | ID: {q.get('id', '')}")
+            rotulo = f"**📌 {q.get('tema', 'Sem tema')}** | Nivel: {q.get('dificuldade', '')} | ID: {q.get('id', '')}"
+            if q.get("disciplina"):
+                rotulo += f" | Disciplina: {q.get('disciplina')}"
+            st.markdown(rotulo)
             perg = q.get("pergunta_direta", "")
             if len(perg) > 130:
                 perg = perg[:130] + "..."
