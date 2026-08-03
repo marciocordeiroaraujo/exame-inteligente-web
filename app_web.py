@@ -1078,19 +1078,26 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 .stTabs [data-baseweb="tab"][aria-selected="true"] {color: @@CORS@@ !important; font-weight: 800;
     border-bottom: 3px solid @@CORS@@;}
 
-/* ---------------- Dialogs / alerts / dataframe ---------------- */
+/* ---------------- Dialogs / popovers SEMPRE claros ----------------
+   Regra fixa: toda janela flutuante (dialog, popover/tutorial) usa fundo
+   claro (branco) e texto escuro, NAO importa o tema selecionado. Isso
+   evita fundo preto com letra preta (ilegivel) em navegadores com modo
+   escuro forcado ou quando o usuario escolhe o tema Dark. */
 [data-testid="stDialog"] {
     border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.35);
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
 }
 [data-testid="stDialog"] p, [data-testid="stDialog"] label,
 [data-testid="stDialog"] .stMarkdown, [data-testid="stDialog"] h1,
 [data-testid="stDialog"] h2, [data-testid="stDialog"] h3,
-[data-testid="stDialog"] h4, [data-testid="stDialog"] h5 {
-    color: var(--cor-texto) !important;
+[data-testid="stDialog"] h4, [data-testid="stDialog"] h5,
+[data-testid="stDialog"] li,
+[data-testid="stDialog"] small, [data-testid="stDialog"] span {
+    color: #1f1f1f !important;
 }
-/* Controles dentro de dialogos: cores legiveis garantidas
-   (evita fundo == cor da letra em navegadores com modo escuro forcado). */
+[data-testid="stDialog"] a {color: #0b6bcb !important;}
+/* Controles dentro de dialogos: fundo claro garantido (evita fundo ==
+   cor da letra em navegadores com modo escuro forcado). */
 [data-testid="stDialog"] input, [data-testid="stDialog"] textarea,
 [data-testid="stDialog"] div[data-baseweb="input"],
 [data-testid="stDialog"] div[data-baseweb="input"] > div,
@@ -1098,12 +1105,25 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] div[data-baseweb="select"] input,
 [data-testid="stDialog"] [data-baseweb="select"] span,
 [data-testid="stDialog"] [data-baseweb="select"] div {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
+}
+[data-testid="stDialog"] div[data-baseweb="input"] input,
+[data-testid="stDialog"] div[data-baseweb="select"] input {
+    color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
+}
+[data-testid="stDialog"] textarea {
+    color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
+}
+[data-testid="stDialog"] label, [data-testid="stDialog"] p,
+[data-testid="stDialog"] .stMarkdown, [data-testid="stDialog"] .stCaption,
+[data-testid="stDialog"] small {color: #1f1f1f !important;}
+[data-testid="stDialog"] div[data-testid="stCaptionContainer"] {
+    color: #1f1f1f !important;
 }
 /* slider de cores (select_slider): o balao do valor selecionado fica sobre
    o fundo primario -> texto branco; o thumb e a trilha usam a cor primaria */
 [data-testid="stDialog"] [data-baseweb="slider"] {
-    color: var(--cor-texto) !important;
+    color: #1f1f1f !important;
 }
 [data-testid="stDialog"] [data-baseweb="slider"] [role="slider"],
 [data-testid="stDialog"] [data-baseweb="slider"] [role="slider"] * {
@@ -1119,55 +1139,80 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
     background-color: transparent !important;
 }
 [data-testid="stDialog"] [data-testid="stSliderTickBar"] [data-testid="stMarkdownContainer"] {
-    color: var(--cor-texto) !important;
+    color: #1f1f1f !important;
 }
 [data-testid="stDialog"] [data-baseweb="popover"] [role="listbox"],
 [data-testid="stDialog"] [data-baseweb="menu"],
 [data-testid="stDialog"] [data-baseweb="popover"] ul {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
 }
 [data-testid="stDialog"] [data-baseweb="popover"] li {
-    color: var(--cor-texto) !important;
+    color: #1f1f1f !important;
 }
 [data-testid="stDialog"] [data-baseweb="popover"] li:hover,
 [data-testid="stDialog"] [data-baseweb="popover"] li[aria-selected="true"] {
-    background: @@CORS_SOFT@@ !important; color: var(--cor-texto) !important;
+    background: @@CORS_SOFT@@ !important; color: #1f1f1f !important;
 }
 [data-testid="stDialog"] .stButton > button[kind="secondary"] {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
-    border: 1px solid var(--borda) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
+    border: 1px solid #d3d8e0 !important;
 }
-/* ---------------- Popovers (janelas flutuantes) legiveis ----------------
+[data-testid="stDialog"] .stButton > button[kind="secondary"]:hover {
+    background: #eef2f7 !important; color: #1f1f1f !important;
+}
+[data-testid="stDialog"] .stButton > button[kind="primary"] {
+    color: #ffffff !important;
+}
+/* ---------------- Popovers (janelas flutuantes) SEMPRE claros ----------------
    O Streamlit 1.58 usa stPopover / stPopoverBody / stPopoverButton.
-   Garante fundo claro (nunca preto) e texto escuro, mesmo em navegador
-   com modo escuro forcado. */
-[data-testid="stPopover"] {background: var(--card-bg) !important;}
+   Fundo claro fixo (nunca preto) e texto escuro em todas as partes,
+   inclusive no botao que abre o tutorial e nas listas internas. */
+[data-testid="stPopover"] {background: #ffffff !important;}
+[data-testid="stPopoverButton"] {
+    background: #ffffff !important; color: #1f1f1f !important;
+    border: 1px solid #d3d8e0 !important;
+}
+[data-testid="stPopoverButton"]:hover {
+    background: #eef2f7 !important; color: #1f1f1f !important;
+}
 [data-testid="stPopoverBody"] {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
-    border: 1px solid var(--borda) !important; border-radius: 12px;
+    background: #ffffff !important; color: #1f1f1f !important;
+    border: 1px solid #d3d8e0 !important; border-radius: 12px;
 }
 [data-testid="stPopoverBody"] p, [data-testid="stPopoverBody"] label,
 [data-testid="stPopoverBody"] .stMarkdown, [data-testid="stPopoverBody"] h1,
 [data-testid="stPopoverBody"] h2, [data-testid="stPopoverBody"] h3,
 [data-testid="stPopoverBody"] h4, [data-testid="stPopoverBody"] h5,
-[data-testid="stPopoverBody"] a, [data-testid="stPopoverBody"] li {
-    color: var(--cor-texto) !important;
+[data-testid="stPopoverBody"] li,
+[data-testid="stPopoverBody"] small, [data-testid="stPopoverBody"] span {
+    color: #1f1f1f !important;
 }
+[data-testid="stPopoverBody"] a {color: #0b6bcb !important;}
 [data-testid="stPopoverBody"] input, [data-testid="stPopoverBody"] textarea,
 [data-testid="stPopoverBody"] div[data-baseweb="input"],
 [data-testid="stPopoverBody"] div[data-baseweb="input"] > div,
 [data-testid="stPopoverBody"] div[data-baseweb="select"] > div,
 [data-testid="stPopoverBody"] div[data-baseweb="select"] input,
 [data-testid="stPopoverBody"] [data-baseweb="select"] span {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
+}
+[data-testid="stPopoverBody"] div[data-baseweb="input"] input,
+[data-testid="stPopoverBody"] div[data-baseweb="select"] input {
+    color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
 }
 [data-testid="stPopoverBody"] .stButton > button[kind="secondary"] {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
-    border: 1px solid var(--borda) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
+    border: 1px solid #d3d8e0 !important;
+}
+[data-testid="stPopoverBody"] .stButton > button[kind="secondary"]:hover {
+    background: #eef2f7 !important; color: #1f1f1f !important;
 }
 [data-testid="stPopoverBody"] [data-baseweb="popover"] [role="listbox"],
 [data-testid="stPopoverBody"] [data-baseweb="menu"] {
-    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    background: #ffffff !important; color: #1f1f1f !important;
+}
+[data-testid="stPopoverBody"] [data-baseweb="popover"] li {
+    color: #1f1f1f !important;
 }
 .stAlert {border-radius: 10px; border: 1px solid var(--borda);}
 [data-testid="stDataFrame"] {border: 1px solid var(--borda); border-radius: 12px; overflow: hidden;}
