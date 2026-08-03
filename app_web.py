@@ -1325,6 +1325,16 @@ div[class*="st-key-tab_criar"] button[kind="primary"] {
     border: none !important; color: #ffffff !important;
     box-shadow: 0 8px 18px rgba(31,83,141,.28) !important;
 }
+/* ---------- Abas da Central de Questoes ---------- */
+div[class*="st-key-cq_tab_"] button {
+    border-radius: 12px !important; font-weight: 800 !important;
+    height: 44px; transition: all .18s ease;
+}
+div[class*="st-key-cq_tab_"] button[kind="primary"] {
+    background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
+    border: 1px solid @@CORP_EDGE@@ !important; color: @@BTN@@ !important;
+    box-shadow: 0 8px 18px @@CORP_SHADOW@@ !important;
+}
 /* ---------- Inputs ---------- */
 [data-testid="stTextInput"] label p {
     color: #374151 !important; font-weight: 600; font-size: .83rem;
@@ -2081,10 +2091,8 @@ NAV_PLANEJAMENTO = [
     ("Anotacoes", "Lembretes"),
 ]
 NAV_AVALIACOES = [
+    ("Central de Questoes", "Central de Questoes"),
     ("Notas e Estatisticas", "Notas e Estatisticas"),
-    ("Cadastrar Questao", "Cadastrar Questao"),
-    ("Importar IA", "Importar IA"),
-    ("Catalogo de Questoes", "Catalogo de Questoes"),
     ("Gerar Prova", "Gerar Prova"),
     ("Configuracoes", "Configuracoes"),
 ]
@@ -2095,10 +2103,8 @@ ICONES_NAV = {
     "Turmas & Alunos": "\u25c8",
     "Central de Planos": "\u2691\uFE0E",
     "Anotacoes": "\u270e\uFE0E",
+    "Central de Questoes": "\u2630",
     "Notas e Estatisticas": "\u25a5",
-    "Cadastrar Questao": "\uff0b",
-    "Importar IA": "\u2913",
-    "Catalogo de Questoes": "\u2630",
     "Gerar Prova": "\u25a4",
     "Configuracoes": "\u2699\uFE0E",
 }
@@ -3381,11 +3387,14 @@ def montar_aba_stats(avaliacoes):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary")
 
+import urllib.request
+import urllib.error
+
 # =====================================================================
 # 16. TELA: CADASTRAR NOVA QUESTAO
 # =====================================================================
 def tela_cadastrar():
-    st.markdown("## Cadastrar Nova Questao")
+    st.markdown("### Criar Questao")
     banco = carregar_banco()
 
     info_cad = st.session_state.pop("cad_info", None)
@@ -3452,54 +3461,233 @@ def tela_cadastrar():
             st.rerun()
 
 # =====================================================================
-# 17. TELA: IMPORTAR LOTE (IA)
+# 17. TELA: IMPORTAR QUESTOES COM IA (via API do usuario)
 # =====================================================================
+def _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, extra):
+    linhas = [
+        f"Crie exatamente {qtd} questoes de prova com as caracteristicas abaixo.",
+        f"- Disciplina: {disciplina.strip() or 'Nao informada'}",
+        f"- Tema / assunto: {tema.strip()}",
+        f"- Nivel de dificuldade: {dificuldade}",
+        f"- Tipo: {tipo}",
+    ]
+    if extra and extra.strip():
+        linhas.append(f"- Instrucoes adicionais: {extra.strip()}")
+    linhas.append("")
+    linhas.append("Responda APENAS com JSON valido, sem texto adicional, "
+                 "usando exatamente esta estrutura de lista:")
+    linhas.append('[ { "tema": "descritor/tema", "dificuldade": "Facil|Medio|Dificil", '
+                 '"enunciado": "texto de contexto ou situacao", '
+                 '"pergunta_direta": "comando objetivo da questao", '
+                 '"alternativas": { "A": "opcao A", "B": "opcao B", "C": "opcao C", "D": "opcao D" }, '
+                 '"gabarito": "A" } ]')
+    linhas.append("")
+    linhas.append("Regras:")
+    linhas.append("- Multipla escolha: preencha as alternativas A-D e o gabarito com a letra correta.")
+    linhas.append('- Discursiva: deixe "alternativas" como {} e "gabarito" como "Discursiva".')
+    linhas.append("- O enunciado deve trazer o contexto (texto, tabela, situacao-problema); "
+                 "a pergunta_direta deve ser o comando.")
+    linhas.append(f"- Nao repita questoes e gere exatamente {qtd} questoes.")
+    return "\n".join(linhas)
+
+
+def _extrair_json_ia(texto):
+    t = (texto or "").strip()
+    if t.startswith("```"):
+        linhas = t.splitlines()
+        t = "\n".join(linhas[1:]) if len(linhas) > 1 else ""
+        if t.rstrip().endswith("```"):
+            t = t.rstrip()[:-3].rstrip()
+    ini = t.find("[")
+    fim = t.rfind("]")
+    if ini != -1 and fim != -1 and fim > ini:
+        t = t[ini:fim + 1]
+    return json.loads(t)
+
+
+def chamar_ia_gemini(api_key, modelo, prompt):
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}"
+           f":generateContent?key={api_key}")
+    corpo = {"contents": [{"parts": [{"text": prompt}]}]}
+    req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        dados = json.loads(resp.read().decode("utf-8"))
+    try:
+        return dados["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        raise ValueError("O Gemini nao retornou um texto valido.")
+
+
+def chamar_ia_openai(api_key, modelo, prompt):
+    url = "https://api.openai.com/v1/chat/completions"
+    corpo = {
+        "model": modelo,
+        "messages": [
+            {"role": "system",
+             "content": "Voce e um professor experiente que gera questoes de prova em JSON valido."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.7,
+    }
+    req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"),
+                                 headers={"Content-Type": "application/json",
+                                          "Authorization": f"Bearer {api_key}"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        dados = json.loads(resp.read().decode("utf-8"))
+    try:
+        return dados["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise ValueError("A OpenAI nao retornou um texto valido.")
+
+
 def tela_importar():
-    st.markdown("## Importar Lote de Questoes (IA)")
-    st.caption("Cole na caixa abaixo o codigo JSON gerado pela Inteligencia Artificial. "
-               "Ele deve conter uma lista de questoes, por exemplo:\n\n"
-               '`[ { "tema": "...", "enunciado": "...", "pergunta_direta": "..." } ]`')
+    st.markdown("### Importar Questoes com IA")
+    st.caption("A IA gera as questoes usando a sua propria chave de API (Gemini, ChatGPT etc.). "
+               "A chave NAO e salva no app e o consumo e cobrado na sua conta do servico.")
 
-    texto_json = st.text_area("Codigo JSON do lote:", height=320,
-                              key="importar_json", placeholder='[ { "tema": "...", ... } ]')
+    info_ia = st.session_state.pop("ia_info", None)
+    if info_ia:
+        if info_ia[0] == "ok":
+            st.success(info_ia[1])
+        else:
+            st.error(info_ia[1])
 
-    if st.button("Processar e Salvar Lote", type="primary", use_container_width=True):
-        if not texto_json.strip():
-            st.warning("Por favor, cole o codigo gerado pela IA antes de processar.")
+    provedor = st.selectbox("Provedor de IA:", ["Google Gemini", "OpenAI / ChatGPT"],
+                            key="ia_provedor")
+    chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
+                          placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
+    modelo_padrao = "gemini-2.0-flash" if provedor == "Google Gemini" else "gpt-4o-mini"
+    modelo = st.text_input("Modelo:", value=modelo_padrao, key="ia_modelo",
+                           help="Deixe como esta para usar o modelo padrao do provedor.")
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    disciplina = c1.text_input("Disciplina:", key="ia_disciplina",
+                               placeholder="Ex: Matematica")
+    tema = c2.text_input("Tema / assunto / descritor:", key="ia_tema",
+                         placeholder="Ex: D15 - Resolver problema envolvendo numeros racionais")
+    c3, c4, c5 = st.columns(3)
+    qtd = int(c3.number_input("Quantidade:", min_value=1, max_value=20, value=5, step=1,
+                              key="ia_qtd"))
+    dificuldade = c4.selectbox("Nivel de dificuldade:", ["Facil", "Medio", "Dificil"],
+                               key="ia_dificuldade")
+    tipo = c5.selectbox("Tipo:", ["Multipla escolha (A-D)", "Discursiva"], key="ia_tipo")
+    extra = st.text_area("Instrucoes extras (opcional):", key="ia_extra",
+                         placeholder="Ex: Incluir apenas questoes do 8o ano, sem usar porcentagem...")
+
+    if st.button("Gerar Questoes com IA", type="primary", use_container_width=True,
+                 key="ia_gerar"):
+        if not chave.strip():
+            st.error("Informe sua chave de API para gerar as questoes.")
+        elif not tema.strip():
+            st.error("Informe o tema / assunto das questoes.")
+        else:
+            prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, extra)
+            try:
+                with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
+                    if provedor == "Google Gemini":
+                        texto = chamar_ia_gemini(chave.strip(),
+                                                 modelo.strip() or "gemini-2.0-flash", prompt)
+                    else:
+                        texto = chamar_ia_openai(chave.strip(),
+                                                 modelo.strip() or "gpt-4o-mini", prompt)
+                novas = _extrair_json_ia(texto)
+                if not isinstance(novas, list):
+                    raise ValueError("A IA nao retornou uma lista de questoes.")
+                st.session_state["ia_preview"] = novas
+            except urllib.error.HTTPError as e:
+                detalhe = e.read().decode("utf-8", errors="ignore")[:300]
+                st.error(f"Erro {e.code} ao chamar o servico de IA. "
+                         f"Verifique a chave e o modelo.\n\n{detalhe}")
+            except (urllib.error.URLError, TimeoutError) as e:
+                st.error("Nao foi possivel conectar ao servico de IA. Verifique sua internet.")
+            except (ValueError, json.JSONDecodeError) as e:
+                st.error(f"A IA nao retornou um JSON valido. Tente novamente.\n\nDetalhe: {e}")
+
+    preview = st.session_state.get("ia_preview")
+    if preview:
+        st.markdown("---")
+        st.markdown("### Revisao das questoes geradas")
+        questoes = [q for q in preview if isinstance(q, dict)]
+        if not questoes:
+            st.warning("Nenhuma questao valida na resposta da IA.")
             return
-        try:
-            novas_questoes = json.loads(texto_json)
-            if not isinstance(novas_questoes, list):
-                st.error("O formato esta incorreto. Certifique-se de que e uma lista [ {...}, {...} ].")
-                return
-
+        for i, q in enumerate(questoes):
+            alt = q.get("alternativas", {}) or {}
+            with st.container(border=True):
+                c_chk, c_txt = st.columns([1, 9])
+                c_chk.checkbox("Importar", value=True, key=f"ia_ok_{i}")
+                c_txt.markdown(
+                    f"**{q.get('tema', 'Sem tema')}** \u00b7 {q.get('dificuldade', 'Medio')}"
+                    f" \u00b7 Gabarito: {q.get('gabarito', '-')}")
+                if q.get("enunciado"):
+                    st.caption("Enunciado / contexto:")
+                    st.write(q.get("enunciado"))
+                if q.get("pergunta_direta"):
+                    st.caption("Pergunta / comando:")
+                    st.write(q.get("pergunta_direta"))
+                if alt:
+                    for letra, txt_alt in alt.items():
+                        if txt_alt:
+                            st.markdown(f"{letra}) {txt_alt}")
+        if st.button("Importar selecionadas para o catalogo", type="primary",
+                     use_container_width=True, key="ia_importar"):
             banco = carregar_banco()
-            sucesso = 0
-            maior_id = max([q.get("id", 0) for q in banco], default=0)
-            for q in novas_questoes:
-                if not isinstance(q, dict):
-                    continue
-                if "enunciado" in q and "pergunta_direta" in q and "tema" in q:
+            maior_id = max([b.get("id", 0) for b in banco], default=0)
+            add = 0
+            for i, q in enumerate(questoes):
+                if st.session_state.get(f"ia_ok_{i}", False):
                     maior_id += 1
                     banco.append({
                         "id": maior_id,
                         "tema": str(q.get("tema", "")).strip(),
-                        "dificuldade": q.get("dificuldade", "Medio"),
-                        "enunciado": q.get("enunciado", ""),
-                        "imagem": q.get("imagem", ""),
-                        "pergunta_direta": q.get("pergunta_direta", ""),
-                        "alternativas": q.get("alternativas", {}),
-                        "gabarito": q.get("gabarito", "")
+                        "dificuldade": str(q.get("dificuldade", "Medio")),
+                        "enunciado": str(q.get("enunciado", "")),
+                        "imagem": str(q.get("imagem", "")),
+                        "pergunta_direta": str(q.get("pergunta_direta", "")),
+                        "alternativas": q.get("alternativas", {}) or {},
+                        "gabarito": str(q.get("gabarito", "")),
                     })
-                    sucesso += 1
-
-            if sucesso > 0:
+                    add += 1
+            if add > 0:
                 salvar_banco(banco)
-                st.success(f"{sucesso} questao(oes) foram importadas e adicionadas ao seu catalogo!")
+                st.session_state.pop("ia_preview", None)
+                st.session_state["ia_info"] = ("ok",
+                                               f"{add} questao(oes) importada(s) para o catalogo!")
+                st.rerun()
             else:
-                st.warning("Nenhuma questao valida encontrada no codigo inserido. Verifique a estrutura.")
-        except json.JSONDecodeError as e:
-            st.error(f"Erro de formatacao no codigo colado. Verifique se copiou o texto completo.\n\nDetalhe tecnico: {e}")
+                st.warning("Nenhuma questao selecionada para importar.")
+
+# =====================================================================
+# 17.1 TELA UNIFICADA: CENTRAL DE QUESTOES
+# =====================================================================
+def tela_central_questoes():
+    st.markdown("## Central de Questoes")
+    aba = st.session_state.get("cq_aba", "criar")
+    c1, c2, c3 = st.columns(3)
+    if c1.button("\uff0b Criar Questao", key="cq_tab_criar",
+                 type="primary" if aba == "criar" else "secondary",
+                 use_container_width=True):
+        st.session_state["cq_aba"] = "criar"
+        st.rerun()
+    if c2.button("\u2913 Importar com IA", key="cq_tab_importar",
+                 type="primary" if aba == "importar" else "secondary",
+                 use_container_width=True):
+        st.session_state["cq_aba"] = "importar"
+        st.rerun()
+    if c3.button("\u2630 Catalogo de Questoes", key="cq_tab_catalogo",
+                 type="primary" if aba == "catalogo" else "secondary",
+                 use_container_width=True):
+        st.session_state["cq_aba"] = "catalogo"
+        st.rerun()
+    st.markdown("---")
+    if aba == "importar":
+        tela_importar()
+    elif aba == "catalogo":
+        tela_catalogo()
+    else:
+        tela_cadastrar()
 
 # =====================================================================
 # 18. TELA: CATALOGO DE QUESTOES
@@ -3535,7 +3723,7 @@ def dialog_excluir_questao(id_q):
         st.rerun()
 
 def tela_catalogo():
-    st.markdown("## Catalogo de Questoes")
+    st.markdown("### Catalogo de Questoes")
     banco = carregar_banco()
     if not banco:
         st.info("O banco de questoes esta vazio! Cadastre ou importe questoes.")
@@ -3809,12 +3997,17 @@ def main():
         tela_anotacoes()
     elif pagina == "Notas e Estatisticas":
         tela_notas()
+    elif pagina == "Central de Questoes":
+        tela_central_questoes()
     elif pagina == "Cadastrar Questao":
-        tela_cadastrar()
+        st.session_state["cq_aba"] = "criar"
+        tela_central_questoes()
     elif pagina == "Importar IA":
-        tela_importar()
+        st.session_state["cq_aba"] = "importar"
+        tela_central_questoes()
     elif pagina == "Catalogo de Questoes":
-        tela_catalogo()
+        st.session_state["cq_aba"] = "catalogo"
+        tela_central_questoes()
     elif pagina == "Gerar Prova":
         tela_gerar()
     elif pagina == "Configuracoes":
