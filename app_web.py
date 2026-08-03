@@ -1086,6 +1086,7 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] {
     border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.35);
     background: #ffffff !important; color: #1f1f1f !important;
+    color-scheme: light !important;
 }
 [data-testid="stDialog"] p, [data-testid="stDialog"] label,
 [data-testid="stDialog"] .stMarkdown, [data-testid="stDialog"] h1,
@@ -1166,8 +1167,10 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 /* ---------------- Popovers (janelas flutuantes) SEMPRE claros ----------------
    O Streamlit 1.58 usa stPopover / stPopoverBody / stPopoverButton.
    Fundo claro fixo (nunca preto) e texto escuro em todas as partes,
-   inclusive no botao que abre o tutorial e nas listas internas. */
-[data-testid="stPopover"] {background: #ffffff !important;}
+   inclusive no botao que abre o tutorial e nas listas internas.
+   color-scheme: light impede o navegador de aplicar preto nativo
+   (modo escuro forcado / tema Dark) nas camadas do popover. */
+[data-testid="stPopover"] {background: #ffffff !important; color-scheme: light !important;}
 [data-testid="stPopoverButton"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
@@ -1175,9 +1178,11 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stPopoverButton"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
+[data-baseweb="popover"] {background: #ffffff !important; color-scheme: light !important;}
 [data-testid="stPopoverBody"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important; border-radius: 12px;
+    color-scheme: light !important;
 }
 [data-testid="stPopoverBody"] p, [data-testid="stPopoverBody"] label,
 [data-testid="stPopoverBody"] .stMarkdown, [data-testid="stPopoverBody"] h1,
