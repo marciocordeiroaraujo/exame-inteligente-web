@@ -3557,9 +3557,17 @@ def tela_importar():
                             key="ia_provedor")
     chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
                           placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
-    modelo_padrao = "gemini-2.0-flash" if provedor == "Google Gemini" else "gpt-4o-mini"
-    modelo = st.text_input("Modelo:", value=modelo_padrao, key="ia_modelo",
-                           help="Deixe como esta para usar o modelo padrao do provedor.")
+    if provedor == "Google Gemini":
+        modelo = st.selectbox("Modelo:",
+                              ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite",
+                               "gemini-3.1-pro-preview"],
+                              key="ia_modelo",
+                              help="gemini-3.5-flash e o modelo estavel atual. "
+                                   "Modelos antigos (ex: gemini-2.0-flash) foram "
+                                   "descontinuados pela Google e retornam erro 404.")
+    else:
+        modelo = st.text_input("Modelo:", value="gpt-4o-mini", key="ia_modelo",
+                               help="Deixe como esta para usar o modelo padrao.")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
@@ -3588,7 +3596,7 @@ def tela_importar():
                 with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
                     if provedor == "Google Gemini":
                         texto = chamar_ia_gemini(chave.strip(),
-                                                 modelo.strip() or "gemini-2.0-flash", prompt)
+                                                 modelo.strip() or "gemini-3.5-flash", prompt)
                     else:
                         texto = chamar_ia_openai(chave.strip(),
                                                  modelo.strip() or "gpt-4o-mini", prompt)
@@ -3598,8 +3606,13 @@ def tela_importar():
                 st.session_state["ia_preview"] = novas
             except urllib.error.HTTPError as e:
                 detalhe = e.read().decode("utf-8", errors="ignore")[:300]
-                st.error(f"Erro {e.code} ao chamar o servico de IA. "
-                         f"Verifique a chave e o modelo.\n\n{detalhe}")
+                msg = (f"Erro {e.code} ao chamar o servico de IA. "
+                       f"Verifique a chave e o modelo.\n\n{detalhe}")
+                if e.code == 404 and "model" in detalhe.lower():
+                    msg += ("\n\nDica: o modelo pode ter sido descontinuado pelo provedor. "
+                            "No campo 'Modelo', escolha um modelo atual "
+                            "(ex: gemini-3.5-flash para o Gemini).")
+                st.error(msg)
             except (urllib.error.URLError, TimeoutError) as e:
                 st.error("Nao foi possivel conectar ao servico de IA. Verifique sua internet.")
             except (ValueError, json.JSONDecodeError) as e:
