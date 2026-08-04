@@ -981,12 +981,12 @@ div[class*="st-key-aluno_"] button:hover {
 @media (min-width: 769px) {
     div[class*="st-key-dash_wrap"] {
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
-        grid-template-rows: 1fr 1fr auto;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+        grid-template-rows: auto auto auto;
         grid-template-areas:
-            "mural cal"
-            "grade cal"
-            "agenda agenda";
+            "mural  cal"
+            "mural  agenda"
+            "grade  grade";
         gap: 12px;
         align-items: stretch;
         min-height: calc(100vh - 235px);
@@ -998,7 +998,6 @@ div[class*="st-key-aluno_"] button:hover {
     div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_agenda) { grid-area: agenda; }
     div[class*="st-key-dash_wrap"] > div > div.stVerticalBlock { height: 100%; }
     div[class*="st-key-dash_wrap"] div[class*="st-key-card_"] { margin-bottom: 0 !important; }
-    div[class*="st-key-card_dash_agenda"] { min-height: 150px; }
 }
 .card-titulo {font-weight: 800; font-size: .95rem; margin-bottom: 4px; color: var(--cor-texto);}
 .card-sub {font-size: .82rem; color: var(--cor-cinza);}
@@ -2740,7 +2739,7 @@ def fragmento_dashboard():
             if not anotacoes:
                 st.caption("Nenhum post-it. Crie um no botao + Novo.")
             else:
-                with st.container(key="mural_scroll", height=540):
+                with st.container(key="mural_scroll", height=320):
                     for nota in anotacoes:
                         cor = nota.get("cor") or "#fff3a3"
                         txt = cor_texto_legivel(cor)
