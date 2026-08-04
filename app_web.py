@@ -2328,9 +2328,11 @@ def tela_login():
 
         try:
             _diag_cookie = bool(st.context.cookies.get(EI_COOKIE, ""))
+            _diag_xsrf = bool(st.context.cookies.get("_streamlit_xsrf", ""))
         except Exception:
             _diag_cookie = False
-        st.caption(f"ei-build 20260803b &middot; cookie={'sim' if _diag_cookie else 'nao'}")
+            _diag_xsrf = False
+        st.caption(f"ei-build 20260803c &middot; cookie={'sim' if _diag_cookie else 'nao'} &middot; xsrf={'sim' if _diag_xsrf else 'nao'}")
 
 # =====================================================================
 # 7. CALENDARIO EM HTML
