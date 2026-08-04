@@ -661,7 +661,7 @@ def primeiro_nome_professor(config):
     nome = (config.get("professor") or "").strip() or "Professor"
     return nome.split()[0]
 
-MESES_PT = ["", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 DIAS_COMPLETOS = ["Segunda-feira", "Terca-feira", "Quarta-feira",
                   "Quinta-feira", "Sexta-feira", "Sabado", "Domingo"]
@@ -925,7 +925,7 @@ div[class*="st-key-card_"] {
 }
 div[class*="st-key-card_"]:hover {box-shadow: 0 6px 20px rgba(0,0,0,.10);}
 
-/* Lista de alunos (Turmas & Alunos): contorno ao redor da lista */
+/* Lista de alunos (Turmas e Alunos): contorno ao redor da lista */
 div[class*="st-key-lista_alunos"] {
     border: 1.5px solid @@COR_BORDA@@;
     border-radius: 14px;
@@ -1421,7 +1421,7 @@ div[class*="st-key-tab_criar"] button[kind="primary"] {
     border: none !important; color: #ffffff !important;
     box-shadow: 0 8px 18px rgba(31,83,141,.28) !important;
 }
-/* ---------- Abas da Central de Questoes ---------- */
+/* ---------- Abas da Central de Questões ---------- */
 div[class*="st-key-cq_tab_"] button {
     border-radius: 12px !important; font-weight: 800 !important;
     height: 44px; transition: all .18s ease;
@@ -1652,13 +1652,13 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
         tabela_gab = doc.add_table(rows=1, cols=2)
         tabela_gab.style = 'Table Grid'
         hdr_cells = tabela_gab.rows[0].cells
-        hdr_cells[0].text = 'Questao'
+        hdr_cells[0].text = 'Questão'
         hdr_cells[1].text = 'Resposta'
 
         for i, q in enumerate(questoes_selecionadas):
             num_formatado = str(i + 1).zfill(2)
             row_cells = tabela_gab.add_row().cells
-            row_cells[0].text = f"Questao {num_formatado}"
+            row_cells[0].text = f"Questão {num_formatado}"
             row_cells[1].text = q.get('gabarito', '')
 
     buffer = io.BytesIO()
@@ -2182,27 +2182,27 @@ def link_para(pagina, base="."):
 NAV_PLANEJAMENTO = [
     ("Dashboard", "In\u00edcio"),
     ("Grade Semanal", "Grade Semanal"),
-    ("Turmas & Alunos", "Turmas & Alunos"),
+    ("Turmas e Alunos", "Turmas e Alunos"),
     ("Central de Planos", "Central de Planos"),
     ("Anotacoes", "Lembretes"),
 ]
 NAV_AVALIACOES = [
-    ("Central de Questoes", "Central de Questoes"),
-    ("Notas e Estatisticas", "Notas e Estatisticas"),
-    ("Gerar Prova", "Gerar Prova"),
-    ("Configuracoes", "Configuracoes"),
+    ("Central de Questões", "Central de Questões"),
+    ("Avaliações e Estatísticas", "Avaliações e Estatísticas"),
+    ("Atividades", "Atividades"),
+    ("Configurações", "Configurações"),
 ]
 
 ICONES_NAV = {
     "Dashboard": "\u2302",
     "Grade Semanal": "\u25a6",
-    "Turmas & Alunos": "\u25c8",
+    "Turmas e Alunos": "\u25c8",
     "Central de Planos": "\u2691\uFE0E",
     "Anotacoes": "\u270e\uFE0E",
-    "Central de Questoes": "\u2630",
-    "Notas e Estatisticas": "\u25a5",
-    "Gerar Prova": "\u25a4",
-    "Configuracoes": "\u2699\uFE0E",
+    "Central de Questões": "\u2630",
+    "Avaliações e Estatísticas": "\u25a5",
+    "Atividades": "\u25a4",
+    "Configurações": "\u2699\uFE0E",
 }
 
 def montar_sidebar():
@@ -2221,7 +2221,7 @@ def montar_sidebar():
                          use_container_width=True):
                 st.query_params["pagina"] = chave
                 st.rerun()
-        st.markdown('<div class="nav-secao">Avaliacoes</div>', unsafe_allow_html=True)
+        st.markdown('<div class="nav-secao">Avaliações</div>', unsafe_allow_html=True)
         for chave, rotulo in NAV_AVALIACOES:
             icone = ICONES_NAV.get(chave, "")
             rotulo_html = f"{icone}  {rotulo}" if icone else rotulo
@@ -2258,7 +2258,7 @@ def tela_login():
             f'<img class="login-img" src="data:image/png;base64,{LOGO_INICIO_B64}" '
             'alt="Exame Inteligente" /></div>'
             '<div class="login-sub">Entre com a sua conta para acessar turmas, '
-            'planos de aula, questoes e provas.</div>',
+            'planos de aula, questões e provas.</div>',
             unsafe_allow_html=True)
 
         modo = st.session_state.get("login_modo", "Entrar")
@@ -2723,10 +2723,10 @@ def tela_grade_semanal():
                         unsafe_allow_html=True)
 
 # =====================================================================
-# 11. TELA: TURMAS & ALUNOS
+# 11. TELA: TURMAS E ALUNOS
 # =====================================================================
 def tela_turmas():
-    st.markdown("## Turmas & Alunos")
+    st.markdown("## Turmas e Alunos")
     grade = carregar_grade()
     dados_turmas = carregar_turmas()
 
@@ -3206,7 +3206,7 @@ def tela_anotacoes():
                 st.rerun()
 
 # =====================================================================
-# 14. TELA: NOTAS E ESTATISTICAS
+# 14. TELA: AVALIACOES E ESTATISTICAS
 # =====================================================================
 def nivel_info(perc):
     if perc < 50:
@@ -3227,30 +3227,30 @@ def resolver_descritor(texto):
     return "Sem Descritor"
 
 def tela_notas():
-    st.markdown("## Central de Notas e Estatisticas")
+    st.markdown("## Central de Avaliações e Estatísticas")
     avaliacoes = carregar_avaliacoes()
     dados_turmas = carregar_turmas()
 
     tab_criar, tab_corrigir, tab_stats = st.tabs(
-        ["1. Criar Avaliacao & Gabarito", "2. Larcar Notas / Corrigir", "3. Estatisticas por Descritor"])
+        ["1. Criar Avaliação e Gabarito", "2. Lançar Notas / Corrigir", "3. Estatísticas por Descritor"])
 
     # ---------------- TAB 1: CRIAR ----------------
     with tab_criar:
         turmas_cad = sorted(list(dados_turmas.keys()))
         if not turmas_cad:
-            st.error("Voce nao tem turmas com alunos. Cadastre em Turmas & Alunos primeiro.")
+            st.error("Você não tem turmas com alunos. Cadastre em Turmas e Alunos primeiro.")
         else:
             c1, c2, c3 = st.columns(3)
-            turmas_sel = c1.multiselect("Turmas que farao a prova", turmas_cad)
-            titulo = c2.text_input("Titulo da prova", placeholder="Ex: Prova Bimestral de Matematica")
-            qtd = c3.number_input("Qtd. de questoes", min_value=1, max_value=50, value=10, step=1)
+            turmas_sel = c1.multiselect("Turmas que farão a prova", turmas_cad)
+            titulo = c2.text_input("Titulo da prova", placeholder="Ex: Prova Bimestral de Matemática")
+            qtd = c3.number_input("Qtd. de questões", min_value=1, max_value=50, value=10, step=1)
 
-            if st.button("Gerar Prova", type="primary"):
+            if st.button("Gerar Atividade", type="primary"):
                 st.session_state["gab_qtd"] = int(qtd)
                 st.session_state["gab_rows"] = [{"resposta": "A", "descritor": ""}
                                                 for _ in range(int(qtd))]
 
-            st.markdown("**Gabarito e descritores (digite o numero, ex: 2, 02, D02):**")
+            st.markdown("**Gabarito e descritores (digite o número, ex: 2, 02, D02):**")
             linhas = st.session_state.get("gab_rows", [])
             for i, row in enumerate(linhas):
                 r1, r2, r3 = st.columns([1, 1, 3])
@@ -3266,7 +3266,7 @@ def tela_notas():
                     if chave_d != "Sem Descritor":
                         hint = f":blue[{DESCRITORES_MAT[chave_d]}]"
                     else:
-                        hint = ":red[Descritor nao encontrado]"
+                        hint = ":red[Descritor não encontrado]"
                 r3.caption(hint if hint else " ")
                 row["resposta"] = resp
                 row["descritor"] = desc
@@ -3276,7 +3276,7 @@ def tela_notas():
                 if not turmas_sel:
                     st.error("Selecione pelo menos uma turma.")
                 elif not linhas:
-                    st.error("Clique em 'Gerar Prova' para gerar os campos do gabarito.")
+                    st.error("Clique em 'Gerar Atividade' para gerar os campos do gabarito.")
                 else:
                     gabarito_final = [
                         {"questao": i + 1,
@@ -3287,7 +3287,7 @@ def tela_notas():
                     for turma in turmas_sel:
                         avaliacoes.append({
                             "id": max([a.get("id", 0) for a in avaliacoes], default=0) + 1,
-                            "titulo": titulo.strip() or "Avaliacao sem Titulo",
+                            "titulo": titulo.strip() or "Avaliação sem Título",
                             "turma": turma,
                             "data": datetime.now().strftime("%d/%m/%Y"),
                             "gabarito": gabarito_final,
@@ -3301,11 +3301,11 @@ def tela_notas():
     # ---------------- TAB 2: CORRIGIR ----------------
     with tab_corrigir:
         if not avaliacoes:
-            st.info("Nenhuma avaliacao cadastrada.")
+            st.info("Nenhuma avaliação cadastrada.")
         else:
             titulos_av = [f"[{a['turma']}] {a['titulo']} ({a['data']})" for a in avaliacoes]
             c1, c2 = st.columns([2.5, 1.5])
-            av_escolhida = c1.selectbox("Selecione a avaliacao", titulos_av, key="av_corrigir")
+            av_escolhida = c1.selectbox("Selecione a avaliação", titulos_av, key="av_corrigir")
             modo = c2.radio("Modo de correcao", ["Rapido (Texto)", "Detalhado (Blocos)"],
                             horizontal=True)
 
@@ -3317,7 +3317,7 @@ def tela_notas():
             qtd_q = len(gabarito)
 
             if not alunos:
-                st.warning("Esta turma nao tem alunos cadastrados.")
+                st.warning("Esta turma não tem alunos cadastrados.")
             else:
                 if modo == "Rapido (Texto)":
                     st.caption("Dica: digite as respostas seguidas (Ex: ADCBE) na caixa.")
@@ -3332,7 +3332,7 @@ def tela_notas():
                         if modo == "Rapido (Texto)":
                             c1, c2 = st.columns([3, 1])
                             resp_txt = c1.text_input(
-                                f"Respostas ({qtd_q} questoes)",
+                                f"Respostas ({qtd_q} questões)",
                                 value=dados_exist.get("respostas_dadas", ""),
                                 key=f"corr_resp_{aluno}", label_visibility="collapsed")
                             nota = c2.text_input("Nota", value=str(dados_exist.get("nota_final", "")),
@@ -3398,7 +3398,7 @@ def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
             }
     avaliacoes[idx] = av
     salvar_avaliacoes(avaliacoes)
-    st.success("Correcao automatica finalizada e notas salvas!")
+    st.success("Correção automática finalizada e notas salvas!")
     st.rerun()
 
 # =====================================================================
@@ -3406,11 +3406,11 @@ def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
 # =====================================================================
 def montar_aba_stats(avaliacoes):
     if not avaliacoes:
-        st.info("Nenhuma avaliacao cadastrada.")
+        st.info("Nenhuma avaliação cadastrada.")
         return
 
     titulos_av = [f"[{a['turma']}] {a['titulo']} ({a['data']})" for a in avaliacoes]
-    av_escolhida = st.selectbox("Avaliacao para estatisticas", titulos_av, key="av_stats")
+    av_escolhida = st.selectbox("Avaliação para estatísticas", titulos_av, key="av_stats")
 
     idx = titulos_av.index(av_escolhida)
     av = avaliacoes[idx]
@@ -3418,12 +3418,12 @@ def montar_aba_stats(avaliacoes):
     gabarito = av["gabarito"]
     qtd_questoes = len(gabarito)
 
-    gerar = st.button("Gerar Relatorio", type="primary")
+    gerar = st.button("Gerar Relatório", type="primary")
     if not gerar:
         return
 
     if not notas:
-        st.warning("Nenhuma nota lancada para gerar estatisticas.")
+        st.warning("Nenhuma nota lançada para gerar estatísticas.")
         return
 
     media_turma = sum([n["nota_final"] for n in notas.values()]) / len(notas)
@@ -3493,7 +3493,7 @@ MODELO_OPENAI = "gpt-4o-mini"
 # 16. TELA: CADASTRAR NOVA QUESTAO
 # =====================================================================
 def tela_cadastrar():
-    st.markdown("### Criar Questao")
+    st.markdown("### Criar Questão")
     banco = carregar_banco()
 
     info_cad = st.session_state.pop("cad_info", None)
@@ -3525,7 +3525,7 @@ def tela_cadastrar():
         dificuldade = c2[1].selectbox("6. Nivel de Dificuldade:", ["Facil", "Medio", "Dificil"])
         tema = c2[2].text_input("7. Tema / Descritor SAEB:",
                                 placeholder="Ex: D15 - Resolver problema...")
-        salvar = st.form_submit_button("Salvar Questao", type="primary",
+        salvar = st.form_submit_button("Salvar Questão", type="primary",
                                        use_container_width=True)
 
     if salvar:
@@ -3556,7 +3556,7 @@ def tela_cadastrar():
             salvar_banco(banco)
             st.session_state["cad_limpar_img"] = True
             st.session_state["cad_info"] = ("ok",
-                                            f"Questao {novo_id} salva com sucesso no banco de dados!")
+                                            f"Questão {novo_id} salva com sucesso no banco de dados!")
             st.rerun()
 
 # =====================================================================
@@ -3708,7 +3708,7 @@ def _avancar_revisao():
         st.session_state["ia_rev_idx"] = min(idx, len(lista) - 1)
 
 
-@st.dialog("Revisar Questao")
+@st.dialog("Revisar Questão")
 def dialog_revisar_questao():
     lista = st.session_state.get("ia_revisar") or []
     if not lista:
@@ -3721,7 +3721,7 @@ def dialog_revisar_questao():
     q = lista[idx]
     disc_padrao = st.session_state.get("ia_disciplina_gerada", "Geral")
 
-    st.caption(f"Questao {idx + 1} de {len(lista)}")
+    st.caption(f"Questão {idx + 1} de {len(lista)}")
     st.markdown(f"**{q.get('tema', 'Sem tema')}** \u00b7 {q.get('dificuldade', 'Medio')}"
                 f" \u00b7 Gabarito: {q.get('gabarito', '-')}")
     if q.get("enunciado"):
@@ -3796,10 +3796,10 @@ def tela_importar():
     pendente = st.session_state.pop("ia_tema_pendente", None)
     if pendente:
         st.session_state["ia_tema"] = pendente
-    st.markdown("### Importar Questoes com IA")
-    st.caption("A IA gera as questoes usando a **sua propria chave de API** (Gemini ou ChatGPT), "
-               "configurada em **Configuracoes > Chave de API**. "
-               "O consumo e cobrado na sua conta do servico.")
+    st.markdown("### Importar Questões com IA")
+    st.caption("A IA gera as questões usando a **sua própria chave de API** (Gemini ou ChatGPT), "
+               "configurada em **Configurações > Chave de API**. "
+               "O consumo é cobrado na sua conta do serviço.")
 
     info_ia = st.session_state.pop("ia_info", None)
     if info_ia:
@@ -3819,20 +3819,20 @@ def tela_importar():
                 'alt="Exame Inteligente" style="max-width:170px; width:100%; '
                 'height:auto; border-radius:12px;" />',
                 unsafe_allow_html=True)
-            c_txt.markdown("**Configure sua chave de API para importar questoes com IA**")
+            c_txt.markdown("**Configure sua chave de API para importar questões com IA**")
             c_txt.caption(
                 "A chave de API (Google Gemini ou OpenAI) agora fica em "
-                "**Configuracoes > Chave de API**. Informe a chave uma unica vez "
-                "e ela sera salva na sua conta, sem precisar digitar de novo.")
-            if c_txt.button("Ir para Configuracoes", type="primary",
+                "**Configurações > Chave de API**. Informe a chave uma única vez "
+                "e ela será salva na sua conta, sem precisar digitar de novo.")
+            if c_txt.button("Ir para Configurações", type="primary",
                             key="ia_ir_config"):
-                ir_para("Configuracoes")
+                ir_para("Configurações")
                 st.rerun()
         return
 
     provedor = carregar_config().get("provedor_ia", "Google Gemini")
     modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
-    st.caption(f"Provedor: **{provedor}** (definido em Configuracoes > Chave de API) | "
+    st.caption(f"Provedor: **{provedor}** (definido em Configurações > Chave de API) | "
                f"Modelo de IA: **{modelo_interno}** (escolhido automaticamente pelo app).")
 
     st.markdown("---")
@@ -3880,26 +3880,26 @@ def tela_importar():
             n_alt = 4
 
     extra = st.text_area("Instrucoes extras (opcional):", key="ia_extra",
-                         placeholder="Ex: Incluir apenas questoes do 8o ano, sem usar porcentagem...")
+                         placeholder="Ex: Incluir apenas questões do 8º ano, sem usar porcentagem...")
 
-    if st.button("Gerar Questoes com IA", type="primary", use_container_width=True,
+    if st.button("Gerar Questões com IA", type="primary", use_container_width=True,
                  key="ia_gerar"):
         if not chave_salva:
             st.error("Voce ainda nao configurou sua chave de API. "
-                     "Va em Configuracoes > Chave de API para informa-la.")
+                     "Vá em Configurações > Chave de API para informá-la.")
         elif not tema.strip():
-            st.error("Informe o tema / assunto das questoes.")
+            st.error("Informe o tema / assunto das questões.")
         else:
             prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, n_alt, extra)
             try:
-                with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
+                with st.spinner("Gerando questões... isso pode levar alguns segundos."):
                     if provedor == "Google Gemini":
                         texto = chamar_ia_gemini(chave_salva, modelo_interno, prompt)
                     else:
                         texto = chamar_ia_openai(chave_salva, modelo_interno, prompt)
                 novas = _extrair_json_ia(texto)
                 if not isinstance(novas, list):
-                    raise ValueError("A IA nao retornou uma lista de questoes.")
+                    raise ValueError("A IA não retornou uma lista de questões.")
                 novas = [q for q in novas if isinstance(q, dict)]
                 if not novas:
                     raise ValueError("A IA nao retornou nenhuma questao valida.")
@@ -3929,10 +3929,10 @@ def tela_importar():
 # 17.1 TELA UNIFICADA: CENTRAL DE QUESTOES
 # =====================================================================
 def tela_central_questoes():
-    st.markdown("## Central de Questoes")
+    st.markdown("## Central de Questões")
     aba = st.session_state.get("cq_aba", "criar")
     c1, c2, c3 = st.columns(3)
-    if c1.button("\uff0b Criar Questao", key="cq_tab_criar",
+    if c1.button("\uff0b Criar Questão", key="cq_tab_criar",
                  type="primary" if aba == "criar" else "secondary",
                  use_container_width=True):
         st.session_state["cq_aba"] = "criar"
@@ -3942,7 +3942,7 @@ def tela_central_questoes():
                  use_container_width=True):
         st.session_state["cq_aba"] = "importar"
         st.rerun()
-    if c3.button("\u2630 Catalogo de Questoes", key="cq_tab_catalogo",
+    if c3.button("\u2630 Catálogo de Questões", key="cq_tab_catalogo",
                  type="primary" if aba == "catalogo" else "secondary",
                  use_container_width=True):
         st.session_state["cq_aba"] = "catalogo"
@@ -3958,12 +3958,12 @@ def tela_central_questoes():
 # =====================================================================
 # 18. TELA: CATALOGO DE QUESTOES
 # =====================================================================
-@st.dialog("Editar Questao")
+@st.dialog("Editar Questão")
 def dialog_editar_questao(id_q):
     banco = carregar_banco()
     q = next((item for item in banco if item.get("id") == id_q), None)
     if not q:
-        st.info("Questao nao encontrada.")
+        st.info("Questão nao encontrada.")
         return
     novo_enun = st.text_area("Enunciado:", value=q.get("enunciado", ""), height=110)
     nova_perg = st.text_area("Pergunta Direta:", value=q.get("pergunta_direta", ""), height=60)
@@ -3989,10 +3989,10 @@ def dialog_excluir_questao(id_q):
         st.rerun()
 
 def tela_catalogo():
-    st.markdown("### Catalogo de Questoes")
+    st.markdown("### Catálogo de Questões")
     banco = carregar_banco()
     if not banco:
-        st.info("O banco de questoes esta vazio! Cadastre ou importe questoes.")
+        st.info("O banco de questões está vazio! Cadastre ou importe questões.")
         return
 
     c1, c2 = st.columns([3, 1])
@@ -4010,7 +4010,7 @@ def tela_catalogo():
             continue
         questoes.append(q)
 
-    st.caption(f"Mostrando {len(questoes)} questoes")
+    st.caption(f"Mostrando {len(questoes)} questões")
     for q in questoes:
         with st.container(border=True):
             rotulo = f"**📌 {q.get('tema', 'Sem tema')}** | Nivel: {q.get('dificuldade', '')} | ID: {q.get('id', '')}"
@@ -4028,7 +4028,7 @@ def tela_catalogo():
                 dialog_excluir_questao(q["id"])
 
 # =====================================================================
-# 19. TELA: GERAR PROVA (WORD)
+# 19. TELA: GERAR ATIVIDADES (WORD)
 # =====================================================================
 def preparar_download_word(questoes, config, incluir_gabarito,
                            modo_acessibilidade, mostrar_descritor, titulo_prova):
@@ -4050,38 +4050,38 @@ def exibir_download_prova():
             file_name="Minha_Avaliacao.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             type="primary", key="download_prova")
-        st.caption(f"Prova gerada com {st.session_state.get('prova_qtd', 0)} questoes.")
+        st.caption(f"Prova gerada com {st.session_state.get('prova_qtd', 0)} questões.")
 
 def tela_gerar():
-    st.markdown("## Gerar Avaliacao em Word")
+    st.markdown("## Gerar Atividade em Word")
     banco = carregar_banco()
     config = carregar_config()
 
     if not banco:
-        st.error("O banco de questoes esta vazio!")
+        st.error("O banco de questões está vazio!")
         return
 
-    titulo_prova = st.text_input("Titulo da Avaliacao:",
-                                 placeholder="Ex: AVALIACAO BIMESTRAL DE MATEMATICA")
+    titulo_prova = st.text_input("Título da Avaliação:",
+                                 placeholder="Ex: AVALIAÇÃO BIMESTRAL DE MATEMÁTICA")
     c_chk = st.columns(3)
-    mostrar_descritor = c_chk[0].checkbox("Mostrar codigo do descritor (ex: D20)")
+    mostrar_descritor = c_chk[0].checkbox("Mostrar código do descritor (ex: D20)")
     incluir_gabarito = c_chk[1].checkbox("Incluir gabarito ao final", value=True)
-    modo_acessibilidade = c_chk[2].checkbox("Modo Acessibilidade (Fonte 16pt, Coluna Unica)")
+    modo_acessibilidade = c_chk[2].checkbox("Modo Acessibilidade (Fonte 16pt, Coluna Única)")
 
     st.markdown("---")
-    st.markdown("### Opcao 1: Geracao Automatica por Conteudo")
+    st.markdown("### Opção 1: Geração Automática por Conteúdo")
     temas = sorted(set([q.get("tema", "Geral") for q in banco]))
     c1, c2 = st.columns([1, 2])
-    qtd = int(c1.number_input("Qtd. de questoes:", min_value=1, max_value=len(banco),
+    qtd = int(c1.number_input("Qtd. de questões:", min_value=1, max_value=len(banco),
                               value=min(10, len(banco)), step=1))
     temas_sel = c2.multiselect("Quais temas incluir? (vazio = todos)", temas)
 
-    if st.button("Sortear e Gerar Prova", type="primary"):
+    if st.button("Sortear e Gerar Atividades", type="primary"):
         banco_filtrado = [q for q in banco if q.get("tema", "Geral") in temas_sel] if temas_sel else banco
         if len(banco_filtrado) == 0:
-            st.error("Nenhuma questao encontrada para os temas selecionados.")
+            st.error("Nenhuma questão encontrada para os temas selecionados.")
         elif qtd > len(banco_filtrado):
-            st.error(f"Voce pediu {qtd} questoes, mas so existem {len(banco_filtrado)} disponiveis "
+            st.error(f"Você pediu {qtd} questões, mas só existem {len(banco_filtrado)} disponíveis "
                      f"para os temas selecionados.")
         else:
             sorteadas = random.sample(banco_filtrado, qtd)
@@ -4089,7 +4089,7 @@ def tela_gerar():
                                    modo_acessibilidade, mostrar_descritor, titulo_prova)
 
     st.markdown("---")
-    st.markdown("### Opcao 2: Selecao Manual (Avancada)")
+    st.markdown("### Opção 2: Seleção Manual (Avançada)")
     c1, c2 = st.columns(2)
     busca = c1.text_input("Buscar palavra no enunciado...", key="ger_busca")
     tema_f = c2.selectbox("Filtrar por tema:", ["Todos os Temas"] + temas, key="ger_tema")
@@ -4112,7 +4112,7 @@ def tela_gerar():
 
     if st.button("Confirmar e Gerar Word", type="primary"):
         if not selecionadas:
-            st.warning("Selecione pelo menos uma questao nas caixinhas!")
+            st.warning("Selecione pelo menos uma questão nas caixinhas!")
         else:
             preparar_download_word(selecionadas, config, incluir_gabarito,
                                    modo_acessibilidade, mostrar_descritor, titulo_prova)
@@ -4122,7 +4122,7 @@ def tela_gerar():
 # 20. TELA: CONFIGURACOES
 # =====================================================================
 def tela_configuracoes():
-    st.markdown("## Configuracoes")
+    st.markdown("## Configurações")
     config = carregar_config()
 
     tab_pessoais, tab_provas, tab_tema, tab_chave = st.tabs(
@@ -4131,7 +4131,7 @@ def tela_configuracoes():
     with tab_pessoais:
         with st.form("form_config_pessoais"):
             st.markdown("**Dados pessoais:**")
-            escola = st.text_input("Nome da Escola / Instituicao:", value=config.get("escola", ""))
+            escola = st.text_input("Nome da Escola / Instituição:", value=config.get("escola", ""))
             professor = st.text_input("Nome do Professor:", value=config.get("professor", ""))
             salvar_pessoais = st.form_submit_button("Salvar", type="primary",
                                                     use_container_width=True)
@@ -4149,7 +4149,7 @@ def tela_configuracoes():
             opcoes_fonte = ["Arial", "Times New Roman", "Calibri", "Tahoma"]
             idx_fonte = opcoes_fonte.index(config.get("fonte", "Arial")) \
                 if config.get("fonte", "Arial") in opcoes_fonte else 0
-            fonte = st.selectbox("Fonte Padrao:", opcoes_fonte, index=idx_fonte)
+            fonte = st.selectbox("Fonte Padrão:", opcoes_fonte, index=idx_fonte)
             c1, c2 = st.columns(2)
             tamanho_fonte = c1.number_input("Tamanho da Fonte:", min_value=8.0, max_value=30.0,
                                             value=float(config.get("tamanho_fonte", 11)), step=0.5)
@@ -4157,7 +4157,7 @@ def tela_configuracoes():
                                         value=float(config.get("margem_cm", 1.5)), step=0.1)
             usar_duas_colunas = st.checkbox("Usar 2 Colunas no Word",
                                             value=config.get("usar_duas_colunas", True))
-            st.markdown("**Itens do Cabecalho das Provas:**")
+            st.markdown("**Itens do Cabeçalho das Provas:**")
             c3 = st.columns(3)
             mostrar_aluno = c3[0].checkbox("Mostrar linha de NOME DO ALUNO",
                                            value=config.get("mostrar_aluno", True))
@@ -4179,13 +4179,13 @@ def tela_configuracoes():
                 nova["mostrar_turma"] = mostrar_turma
                 nova["mostrar_data"] = mostrar_data
                 salvar_config(nova)
-                st.success("Configuracoes de geracao de provas salvas com sucesso!")
+                st.success("Configurações de geração de provas salvas com sucesso!")
                 st.rerun()
             except ValueError:
-                st.error("Por favor, verifique se os campos numericos estao corretos.")
+                st.error("Por favor, verifique se os campos numéricos estão corretos.")
 
     with tab_tema:
-        st.markdown("**Modo de exibicao:**")
+        st.markdown("**Modo de exibição:**")
         opcoes_exib = ["Claro", "Escuro"]
         aparencia_atual = config.get("aparencia", "Light")
         idx_exib = 1 if aparencia_atual == "Dark" else 0
@@ -4323,28 +4323,28 @@ def main():
         tela_dashboard(config)
     elif pagina == "Grade Semanal":
         tela_grade_semanal()
-    elif pagina == "Turmas & Alunos":
+    elif pagina == "Turmas e Alunos":
         tela_turmas()
     elif pagina == "Central de Planos":
         tela_central_planos(config)
     elif pagina == "Anotacoes":
         tela_anotacoes()
-    elif pagina == "Notas e Estatisticas":
+    elif pagina == "Avaliações e Estatísticas":
         tela_notas()
-    elif pagina == "Central de Questoes":
+    elif pagina == "Central de Questões":
         tela_central_questoes()
-    elif pagina == "Cadastrar Questao":
+    elif pagina == "Cadastrar Questão":
         st.session_state["cq_aba"] = "criar"
         tela_central_questoes()
     elif pagina == "Importar IA":
         st.session_state["cq_aba"] = "importar"
         tela_central_questoes()
-    elif pagina == "Catalogo de Questoes":
+    elif pagina == "Catálogo de Questões":
         st.session_state["cq_aba"] = "catalogo"
         tela_central_questoes()
-    elif pagina == "Gerar Prova":
+    elif pagina == "Atividades":
         tela_gerar()
-    elif pagina == "Configuracoes":
+    elif pagina == "Configurações":
         tela_configuracoes()
     else:
         tela_dashboard(config)
