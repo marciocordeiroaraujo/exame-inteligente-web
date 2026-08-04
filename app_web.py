@@ -559,13 +559,7 @@ def garantir_cookie_token():
         conta = conta_atual()
     return conta.get("usuario", ""), conta.get("cookie_token", "")
 
-def _autologin_por_cookie():
-    if st.session_state.get("deslogado_manual"):
-        return False
-    try:
-        valor = st.context.cookies.get(EI_COOKIE, "")
-    except Exception:
-        return False
+def _autenticar_valor(valor):
     if not isinstance(valor, str) or not valor:
         return False
     valor = unquote(valor)
@@ -577,6 +571,27 @@ def _autologin_por_cookie():
         st.session_state["usuario"] = conta["usuario"]
         return True
     return False
+
+def _autologin_por_cookie():
+    if st.session_state.get("deslogado_manual"):
+        return False
+    try:
+        valor = st.context.cookies.get(EI_COOKIE, "")
+    except Exception:
+        return False
+    return _autenticar_valor(valor)
+
+def _autologin_por_querystring():
+    if st.session_state.get("deslogado_manual"):
+        return False
+    try:
+        valor = st.query_params.get("ei_auth", "")
+        ok = _autenticar_valor(valor)
+        if ok:
+            st.query_params.pop("ei_auth", None)
+        return ok
+    except Exception:
+        return False
 
 def garantir_usuario_teste():
     if not usuario_existe("_teste_"):
@@ -1674,11 +1689,13 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
 # 3.1 JS INJETADO (componente): menu movel + swipe + cookie de login
 #     Roda dentro de um iframe do mesmo dominio e controla o pai.
 # =====================================================================
-def _html_js_movel(usuario=None, token=None):
+def _html_js_movel(usuario=None, token=None, limpar=False):
     import json as _json
 
     payload = None
-    if usuario and token:
+    if limpar:
+        payload = {"limpar": True}
+    elif usuario and token:
         payload = {"usuario": usuario, "token": token}
 
     _BODY = r"""(function(){
@@ -1890,8 +1907,22 @@ def _html_js_movel(usuario=None, token=None):
   }
   function syncCookie() {
     var p = window.__EI_PAYLOAD;
-    if (p && p.usuario) { setCookie(COOKIE, p.usuario + "|" + p.token); }
-    else { if (getCookie(COOKIE)) clearCookie(COOKIE); }
+    if (p && p.limpar) { clearCookie(COOKIE); return; }
+    if (p && p.usuario) { setCookie(COOKIE, p.usuario + "|" + p.token); return; }
+    // Sem payload: ponte de autologin. O cookie so e legivel no navegador,
+    // entao passamos o valor pela URL (ei_auth) e o servidor valida.
+    var val = getCookie(COOKIE);
+    if (!val) return;
+    if (W.__eiRedirected) return;
+    W.__eiRedirected = true;
+    var search = W.location.search || '';
+    if (search.indexOf('ei_auth=') !== -1) {
+      // Tentativa anterior falhou: limpa o cookie para evitar loop.
+      clearCookie(COOKIE);
+      return;
+    }
+    var sep = search.indexOf('?') === -1 ? '?' : '&';
+    W.location.replace(W.location.pathname + search + sep + 'ei_auth=' + encodeURIComponent(val));
   }
   W.__eiSyncCookie = syncCookie;
 
@@ -1933,23 +1964,27 @@ def _html_js_movel(usuario=None, token=None):
 })();
 """
 
+    _payload_js = _json.dumps(payload)
+    _payload_lit = _json.dumps(_payload_js)
+    _body_lit = _json.dumps(_BODY)
+
     return f"""<script>
 (function(){{
   var W = window.parent;
   var d = W.document;
   if (!d || !d.documentElement) return;
-  try {{ W.__EI_PAYLOAD = {_json.dumps(payload)}; if (W.__eiSyncCookie) W.__eiSyncCookie(); }} catch (e) {{}}
+  try {{ W.__EI_PAYLOAD = {_payload_js}; if (W.__eiSyncCookie) W.__eiSyncCookie(); }} catch (e) {{}}
   if (d.getElementById('ei-inj')) return;
   var s = d.createElement('script');
   s.id = 'ei-inj';
-  s.textContent = 'window.__EI_PAYLOAD = (' + {_json.dumps(payload)} + ');\\n' + {_json.dumps(_BODY)};
+  s.textContent = 'window.__EI_PAYLOAD = (' + {_payload_lit} + ');\\n' + {_body_lit};
   (d.head || d.documentElement).appendChild(s);
 }})();
 </script>"""
 
 
-def injetar_js_movel(usuario=None, token=None):
-    st.iframe(_html_js_movel(usuario, token), width=1, height=1)
+def injetar_js_movel(usuario=None, token=None, limpar=False):
+    st.iframe(_html_js_movel(usuario, token, limpar), width=1, height=1)
 
 # =====================================================================
 # 4. MOTOR EXCEL (relatorio de avaliacao, em memoria)
@@ -2332,7 +2367,17 @@ def tela_login():
         except Exception:
             _diag_cookie = False
             _diag_xsrf = False
-        st.caption(f"ei-build 20260803c &middot; cookie={'sim' if _diag_cookie else 'nao'} &middot; xsrf={'sim' if _diag_xsrf else 'nao'}")
+        try:
+            _diag_ei_auth = "ei_auth" in st.query_params
+            _diag_qp = len(st.query_params)
+        except Exception:
+            _diag_ei_auth = False
+            _diag_qp = -1
+        st.caption(
+            f"ei-build 20260804 &middot; cookie={'sim' if _diag_cookie else 'nao'} "
+            f"&middot; xsrf={'sim' if _diag_xsrf else 'nao'} "
+            f"&middot; qp={_diag_qp} &middot; ei_auth={'sim' if _diag_ei_auth else 'nao'}"
+        )
 
 # =====================================================================
 # 7. CALENDARIO EM HTML
@@ -4313,9 +4358,9 @@ def main():
     if not usuario_atual():
         if st.config.get_option("global.appTest") and os.environ.get("EXAME_TESTE_UI") != "1":
             st.session_state["usuario"] = garantir_usuario_teste()
-        elif not _autologin_por_cookie():
+        elif not (_autologin_por_cookie() or _autologin_por_querystring()):
             tela_login()
-            injetar_js_movel()
+            injetar_js_movel(limpar=bool(st.session_state.get("deslogado_manual")))
             return
 
     usuario, token = garantir_cookie_token()
