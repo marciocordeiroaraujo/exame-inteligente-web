@@ -2326,6 +2326,12 @@ def tela_login():
             'Seus dados ficam guardados na sua conta.</div>',
             unsafe_allow_html=True)
 
+        try:
+            _diag_cookie = bool(st.context.cookies.get(EI_COOKIE, ""))
+        except Exception:
+            _diag_cookie = False
+        st.caption(f"ei-build 20260803b &middot; cookie={'sim' if _diag_cookie else 'nao'}")
+
 # =====================================================================
 # 7. CALENDARIO EM HTML
 # =====================================================================
