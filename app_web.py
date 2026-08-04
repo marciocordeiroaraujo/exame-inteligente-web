@@ -1016,6 +1016,34 @@ div[class*="st-key-aluno_"] button:hover {
 .postit .pt-tag {font-size: .72rem; color: inherit; opacity: .78; margin-bottom: 4px;}
 .postit .pt-conteudo {font-size: .86rem; color: inherit; white-space: pre-wrap;}
 
+/* Post-it do mural (Dashboard): conteudo truncado, revela o texto completo
+   ao passar o mouse (sem JS, sem clipar dentro da lista de rolagem). */
+.ei-pt .pt-conteudo {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.ei-pt:hover .pt-conteudo {
+    -webkit-line-clamp: unset;
+    display: block;
+}
+.ei-pt:hover {transform: none;}
+
+/* Lista de post-its do mural: altura fixa com barra de rolagem interna,
+   para a pagina nao crescer infinitamente. */
+div[class*="st-key-mural_scroll"] {
+    overflow-y: auto;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: @@SCROLL@@ transparent;
+}
+div[class*="st-key-mural_scroll"]::-webkit-scrollbar {width: 8px;}
+div[class*="st-key-mural_scroll"]::-webkit-scrollbar-track {background: transparent;}
+div[class*="st-key-mural_scroll"]::-webkit-scrollbar-thumb {
+    background: @@SCROLL@@; border-radius: 8px;
+}
+
 /* ---------------- Calendario ---------------- */
 .cal-table {border-collapse: separate; border-spacing: 4px; width: 100%;}
 .cal-table th {font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--cor-cinza); padding: 4px; text-align: center;}
@@ -1041,6 +1069,7 @@ div[class*="st-key-cal_d_"] button {
     overflow-wrap: normal !important;
     word-break: normal !important;
     overflow: hidden;
+    position: relative;
 }
 div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"],
 div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
@@ -2484,11 +2513,26 @@ def dialog_postit(nota=None):
     conteudo = st.text_area("Anotacao / Lembrete:",
                             value=nota.get("conteudo", "") if is_edicao else "")
 
+    data_default = None
+    if is_edicao:
+        for campo in ("data", "data_criacao"):
+            raw = nota.get(campo)
+            if raw:
+                try:
+                    data_default = datetime.strptime(raw, "%d/%m/%Y").date()
+                    break
+                except (ValueError, TypeError):
+                    data_default = None
+    if data_default is None:
+        data_default = datetime.now().date()
+    data_lembrete = st.date_input("Data do lembrete:", value=data_default)
+
     if st.button("Salvar Post-it", type="primary", use_container_width=True):
         if not titulo.strip() or not conteudo.strip():
             st.error("Preencha o titulo e o conteudo.")
             return
         anotacoes = carregar_anotacoes()
+        data_str = data_lembrete.strftime("%d/%m/%Y")
         if is_edicao:
             for n in anotacoes:
                 if n.get("id") == nota.get("id"):
@@ -2496,11 +2540,13 @@ def dialog_postit(nota=None):
                     n["conteudo"] = conteudo.strip()
                     n["turma"] = turma
                     n["cor"] = cor_hex
+                    n["data"] = data_str
         else:
             novo_id = max([n.get("id", 0) for n in anotacoes], default=0) + 1
             anotacoes.append({
                 "id": novo_id, "titulo": titulo.strip(), "conteudo": conteudo.strip(),
                 "turma": turma, "cor": cor_hex,
+                "data": data_str,
                 "data_criacao": datetime.now().strftime("%d/%m/%Y")
             })
         salvar_anotacoes(anotacoes)
@@ -2570,10 +2616,16 @@ DISCIPLINAS_COMUNS = [
     "Informatica",
 ]
 
-def render_calendario(planos):
+def render_calendario(planos, anotacoes=None):
     hoje = datetime.now()
     cal = st.session_state.get("dash_cal", hoje.strftime("%m/%Y"))
     mes, ano = parse_cal(cal)
+
+    dias_lembrete = set()
+    for n in (anotacoes or []):
+        d = n.get("data") or n.get("data_criacao") or ""
+        if len(d) == 10 and d[2] == "/" and d[5] == "/":
+            dias_lembrete.add(d)
 
     def mes_offset(delta):
         m, a = mes, ano
@@ -2636,6 +2688,21 @@ def render_calendario(planos):
                               use_container_width=True):
                 dia_clicado = data_str
 
+    if dias_lembrete:
+        estilos = ["<style>"]
+        for d in sorted(dias_lembrete):
+            if d[6:10] != f"{ano:04d}" or int(d[3:5]) != mes:
+                continue
+            classe = "st-key-cal_d_" + d.replace("/", "-")
+            estilos.append(
+                f'div[class*="{classe}"] button {{position: relative;}}'
+                f'div[class*="{classe}"] button::after {{'
+                f'content: ""; position: absolute; top: 3px; right: 3px; '
+                f'width: 6px; height: 6px; border-radius: 50%; '
+                f'background: #e67e22; box-shadow: 0 0 0 1px rgba(255,255,255,.55);}}')
+        estilos.append("</style>")
+        st.markdown("".join(estilos), unsafe_allow_html=True)
+
     if trocou_mes and dia_clicado is None:
         return f"01/{mes:02d}/{ano}"
     return dia_clicado
@@ -2656,7 +2723,7 @@ def fragmento_dashboard():
 
     with st.container(key="dash_wrap"):
         with st.container(key="card_dash_cal"):
-            novo_dia = render_calendario(planos)
+            novo_dia = render_calendario(planos, anotacoes)
             if novo_dia:
                 st.session_state["dash_dia"] = novo_dia
                 dia_selecionada = novo_dia
@@ -2672,23 +2739,28 @@ def fragmento_dashboard():
                 dialog_postit()
             if not anotacoes:
                 st.caption("Nenhum post-it. Crie um no botao + Novo.")
-            for nota in anotacoes:
-                cor = nota.get("cor") or "#fff3a3"
-                txt = cor_texto_legivel(cor)
-                st.markdown(
-                    f'<div class="postit" style="background:{cor};color:{txt};">'
-                    f'<div class="pt-titulo">\U0001f4cb {esc(nota.get("titulo", ""))}</div>'
-                    f'<div class="pt-tag">{esc(nota.get("data", ""))}</div>'
-                    f'<div class="pt-conteudo">{esc(nota.get("texto", ""))}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True)
-                b1, b2 = st.columns(2)
-                if b1.button("Editar", key=f"dash_edit_{nota.get('id')}", use_container_width=True):
-                    dialog_postit(nota)
-                if b2.button("Excluir", key=f"dash_del_{nota.get('id')}", use_container_width=True):
-                    anotacoes = [n for n in anotacoes if n.get("id") != nota.get("id")]
-                    salvar_anotacoes(anotacoes)
-                    st.rerun()
+            else:
+                with st.container(key="mural_scroll", height=540):
+                    for nota in anotacoes:
+                        cor = nota.get("cor") or "#fff3a3"
+                        txt = cor_texto_legivel(cor)
+                        conteudo_full = nota.get("conteudo", "")
+                        data_pt = nota.get("data") or nota.get("data_criacao") or ""
+                        st.markdown(
+                            f'<div class="postit ei-pt" style="background:{cor};color:{txt};" '
+                            f'title="{esc(conteudo_full)}">'
+                            f'<div class="pt-titulo">\U0001f4cb {esc(nota.get("titulo", ""))}</div>'
+                            f'<div class="pt-tag">{esc(data_pt)}</div>'
+                            f'<div class="pt-conteudo">{esc(conteudo_full)}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True)
+                        b1, b2 = st.columns(2)
+                        if b1.button("Editar", key=f"dash_edit_{nota.get('id')}", use_container_width=True):
+                            dialog_postit(nota)
+                        if b2.button("Excluir", key=f"dash_del_{nota.get('id')}", use_container_width=True):
+                            anotacoes = [n for n in anotacoes if n.get("id") != nota.get("id")]
+                            salvar_anotacoes(anotacoes)
+                            st.rerun()
 
         with st.container(key="card_dash_agenda"):
             st.markdown(
@@ -3293,11 +3365,12 @@ def tela_anotacoes():
         with colunas[i % 3]:
             cor = nota.get("cor", "#fff3a3")
             txt = cor_texto_legivel(cor)
+            data_pt = nota.get("data") or nota.get("data_criacao") or ""
             st.markdown(
                 f'<div class="postit" style="background:{cor};color:{txt};min-height:120px;">'
-                f'<div class="pt-titulo">{nota.get("titulo","Sem titulo")}</div>'
-                f'<div class="pt-tag">#{nota.get("turma","Geral")} | {nota.get("data_criacao","")}</div>'
-                f'<div class="pt-conteudo">{nota.get("conteudo","")}</div></div>',
+                f'<div class="pt-titulo">{esc(nota.get("titulo","Sem titulo"))}</div>'
+                f'<div class="pt-tag">#{esc(nota.get("turma","Geral"))} | {esc(data_pt)}</div>'
+                f'<div class="pt-conteudo">{esc(nota.get("conteudo",""))}</div></div>',
                 unsafe_allow_html=True)
             b1, b2 = st.columns(2)
             if b1.button("Editar", key=f"anot_edit_{nota.get('id')}", use_container_width=True):
