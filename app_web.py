@@ -16,7 +16,10 @@ import hashlib
 import unicodedata
 import hmac
 import shutil
+import pathlib
 from urllib.parse import unquote
+
+import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 
 from docx import Document
@@ -1987,6 +1990,48 @@ def injetar_js_movel(usuario=None, token=None, limpar=False):
     st.iframe(_html_js_movel(usuario, token, limpar), width=1, height=1)
 
 # =====================================================================
+# 3.2 PONTE DE AUTOLOGIN POR COMPONENTE (sem redirect e sem piscar a
+#     tela de login): um iframe 1x1 do mesmo dominio le o cookie
+#     `ei_usuario` e entrega {usuario, token} direto ao servidor via
+#     `streamlit:setComponentValue` (widget json).
+# =====================================================================
+_EI_BRIDGE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "componentes", "ei_bridge")
+_ei_bridge = components.declare_component("ei_bridge", path=_EI_BRIDGE_DIR)
+
+
+def _html_fallback_manual(tempo_ms=4000):
+    """Redireciona o pai para ?ei_manual=1 se a ponte nao entregar nada."""
+    return f"""<script>
+(function(){{
+  var W = window.parent;
+  if (!W || !W.location) return;
+  setTimeout(function() {{
+    var search = W.location.search || '';
+    var sep = search.indexOf('?') === -1 ? '?' : '&';
+    W.location.replace(W.location.pathname + search + sep + 'ei_manual=1');
+  }}, {tempo_ms});
+}})();
+</script>"""
+
+
+def tela_verificando():
+    injetar_css_login()
+    with st.container(key="login_card"):
+        st.markdown(
+            '<div class="login-logo">'
+            f'<img class="login-img" src="data:image/png;base64,{LOGO_INICIO_B64}" '
+            'alt="Exame Inteligente" /></div>'
+            '<div class="login-sub">Verificando a sessao... Aguarde um instante.</div>',
+            unsafe_allow_html=True)
+        st.markdown(
+            '<a href="?ei_manual=1" '
+            'style="display:inline-block;margin-top:.25rem;color:#6b7280;'
+            'font-size:.85rem;text-decoration:none;">Entrar manualmente</a>',
+            unsafe_allow_html=True)
+    st.iframe(_html_fallback_manual(), width=1, height=1)
+
+# =====================================================================
 # 4. MOTOR EXCEL (relatorio de avaliacao, em memoria)
 # =====================================================================
 def gerar_excel_avaliacao(av):
@@ -2374,7 +2419,7 @@ def tela_login():
             _diag_ei_auth = False
             _diag_qp = -1
         st.caption(
-            f"ei-build 20260804 &middot; cookie={'sim' if _diag_cookie else 'nao'} "
+            f"ei-build 20260804b &middot; cookie={'sim' if _diag_cookie else 'nao'} "
             f"&middot; xsrf={'sim' if _diag_xsrf else 'nao'} "
             f"&middot; qp={_diag_qp} &middot; ei_auth={'sim' if _diag_ei_auth else 'nao'}"
         )
@@ -4359,9 +4404,32 @@ def main():
         if st.config.get_option("global.appTest") and os.environ.get("EXAME_TESTE_UI") != "1":
             st.session_state["usuario"] = garantir_usuario_teste()
         elif not (_autologin_por_cookie() or _autologin_por_querystring()):
-            tela_login()
-            injetar_js_movel(limpar=bool(st.session_state.get("deslogado_manual")))
-            return
+            if st.session_state.get("deslogado_manual"):
+                # Saiu da conta: mostra o login e limpa o cookie no navegador.
+                tela_login()
+                injetar_js_movel(limpar=True)
+                return
+            if "ei_manual" in st.query_params:
+                # Fallback: a ponte nao respondeu, o usuario escolheu entrar na mao.
+                st.query_params.pop("ei_manual", None)
+                tela_login()
+                injetar_js_movel()
+                return
+            bridge = _ei_bridge(key="ei_bridge")
+            if bridge is None:
+                # Ainda sem resposta do navegador: tela neutra, sem piscar o login.
+                tela_verificando()
+                return
+            if bridge.get("nouser"):
+                tela_login()
+                injetar_js_movel()
+                return
+            usuario_b = str(bridge.get("usuario") or "")
+            token_b = str(bridge.get("token") or "")
+            if not (usuario_b and token_b and _autenticar_valor(f"{usuario_b}|{token_b}")):
+                tela_login()
+                injetar_js_movel()
+                return
 
     usuario, token = garantir_cookie_token()
     injetar_js_movel(usuario, token)

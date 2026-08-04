@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;overflow:hidden}</style>
+</head>
+<body>
+<script>
+(function(){
+  var COOKIE = 'ei_usuario';
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));
+    return m ? decodeURIComponent(m[1] || '') : '';
+  }
+  function post(type, payload){
+    var msg = { isStreamlitMessage: true, type: type };
+    if (payload) { for (var k in payload) msg[k] = payload[k]; }
+    window.parent.postMessage(msg, '*');
+  }
+  var sent = false;
+  window.addEventListener('message', function(ev){
+    var d = ev.data;
+    if (!d || d.type !== 'streamlit:render') return;
+    var args = (d && d.args) || {};
+    if (args.limpar) {
+      document.cookie = COOKIE + '=; path=/; max-age=0';
+      post('streamlit:setComponentValue', { value: { nouser: true }, dataType: 'json' });
+      return;
+    }
+    if (sent) return;
+    sent = true;
+    var val = getCookie(COOKIE);
+    if (!val) {
+      post('streamlit:setComponentValue', { value: { nouser: true }, dataType: 'json' });
+      return;
+    }
+    var i = val.indexOf('|');
+    post('streamlit:setComponentValue', {
+      value: { usuario: val.slice(0, i), token: i >= 0 ? val.slice(i + 1) : '' },
+      dataType: 'json'
+    });
+  });
+  post('streamlit:componentReady', { apiVersion: 1 });
+  post('streamlit:setFrameHeight', { height: 1 });
+})();
+</script>
+</body>
+</html>
