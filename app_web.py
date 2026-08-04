@@ -95,7 +95,8 @@ CONFIG_PADRAO = {
     "cor_principal": "#1f538d",
     "cor_secundaria": "#14375e",
     "cor_borda_card": "",
-    "cor_fundo": "#2b2b2b"
+    "cor_fundo": "#2b2b2b",
+    "provedor_ia": "Google Gemini"
 }
 
 DESCRITORES_SAEB = [
@@ -3796,9 +3797,9 @@ def tela_importar():
     if pendente:
         st.session_state["ia_tema"] = pendente
     st.markdown("### Importar Questoes com IA")
-    st.caption("A IA gera as questoes usando a **sua propria chave de API** (Gemini ou ChatGPT). "
-               "Voce pode salvar a chave nesta conta para nao digitar de novo; "
-               "o consumo e cobrado na sua conta do servico.")
+    st.caption("A IA gera as questoes usando a **sua propria chave de API** (Gemini ou ChatGPT), "
+               "configurada em **Configuracoes > Chave de API**. "
+               "O consumo e cobrado na sua conta do servico.")
 
     info_ia = st.session_state.pop("ia_info", None)
     if info_ia:
@@ -3809,62 +3810,30 @@ def tela_importar():
         else:
             st.error(info_ia[1])
 
-    detec = ""
-    ch_det = (st.session_state.get("ia_chave") or "").strip().lower()
-    if ch_det.startswith("aiza"):
-        detec = "Google Gemini"
-    elif ch_det.startswith("sk-"):
-        detec = "OpenAI / ChatGPT"
-    if detec:
-        st.session_state["ia_provedor"] = detec
-
-    c_prov = st.columns([3, 1])
-    provedor = c_prov[0].selectbox("Provedor de IA:",
-                                   ["Google Gemini", "OpenAI / ChatGPT"],
-                                   key="ia_provedor")
-    if c_prov[1].button("\u2139\ufe0f Como obter minha chave?",
-                        key="ia_ajuda", use_container_width=True):
-        st.session_state["ia_mostrar_ajuda"] = not st.session_state.get("ia_mostrar_ajuda")
-    if st.session_state.get("ia_mostrar_ajuda"):
+    chave_salva = (carregar_chave_ia() or "").strip()
+    if not chave_salva:
         with st.container(border=True):
-            if provedor == "Google Gemini":
-                st.markdown(
-                    "**Tutorial - Gemini (Google):**\n\n"
-                    "1. Abra o **Google AI Studio**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)\n\n"
-                    "2. Entre com sua conta Google.\n\n"
-                    "3. Clique em **Create API key** (criar chave).\n\n"
-                    "4. Escolha um projeto (ou crie um) e confirme com **Create**.\n\n"
-                    "5. Copie a chave gerada (comeca com **AIza...**) e cole no campo abaixo.")
-            else:
-                st.markdown(
-                    "**Tutorial - OpenAI (ChatGPT):**\n\n"
-                    "1. Abra: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)\n\n"
-                    "2. Entre com sua conta OpenAI.\n\n"
-                    "3. Clique em **Create new secret key**.\n\n"
-                    "4. Copie a chave gerada (comeca com **sk-...**) e cole no campo abaixo.")
-            st.caption("Dica: o app detecta sozinho o provedor pelo inicio da chave "
-                       "(AIza = Gemini, sk- = OpenAI).")
-    modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
-    st.caption(f"Modelo de IA: **{modelo_interno}** (escolhido automaticamente pelo app).")
+            c_img, c_txt = st.columns([1, 3], vertical_alignment="center")
+            c_img.markdown(
+                f'<img src="data:image/png;base64,{LOGO_INICIO_B64}" '
+                'alt="Exame Inteligente" style="max-width:170px; width:100%; '
+                'height:auto; border-radius:12px;" />',
+                unsafe_allow_html=True)
+            c_txt.markdown("**Configure sua chave de API para importar questoes com IA**")
+            c_txt.caption(
+                "A chave de API (Google Gemini ou OpenAI) agora fica em "
+                "**Configuracoes > Chave de API**. Informe a chave uma unica vez "
+                "e ela sera salva na sua conta, sem precisar digitar de novo.")
+            if c_txt.button("Ir para Configuracoes", type="primary",
+                            key="ia_ir_config"):
+                ir_para("Configuracoes")
+                st.rerun()
+        return
 
-    st.markdown("---")
-    chave_salva = carregar_chave_ia()
-    chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
-                          value=chave_salva,
-                          autocomplete="new-password",
-                          placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
-    if chave_salva:
-        st.caption("Sua chave ja esta salva nesta conta; nao precisa digitar de novo.")
-    c_salvar = st.columns([2, 1])
-    salvar_chave_opt = c_salvar[0].checkbox("Salvar minha chave nesta conta",
-                                            value=True, key="ia_salvar_chave")
-    if chave_salva and c_salvar[1].button("Apagar chave salva",
-                                          key="ia_apagar_chave",
-                                          use_container_width=True):
-        salvar_chave_ia("")
-        st.session_state["ia_info"] = ("info",
-                                       "Chave de API removida da sua conta.")
-        st.rerun()
+    provedor = carregar_config().get("provedor_ia", "Google Gemini")
+    modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
+    st.caption(f"Provedor: **{provedor}** (definido em Configuracoes > Chave de API) | "
+               f"Modelo de IA: **{modelo_interno}** (escolhido automaticamente pelo app).")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
@@ -3915,22 +3884,19 @@ def tela_importar():
 
     if st.button("Gerar Questoes com IA", type="primary", use_container_width=True,
                  key="ia_gerar"):
-        if not chave.strip():
-            st.error("Informe sua chave de API para gerar as questoes.")
+        if not chave_salva:
+            st.error("Voce ainda nao configurou sua chave de API. "
+                     "Va em Configuracoes > Chave de API para informa-la.")
         elif not tema.strip():
             st.error("Informe o tema / assunto das questoes.")
         else:
-            if salvar_chave_opt and chave.strip() != chave_salva:
-                salvar_chave_ia(chave.strip())
-                st.session_state["ia_info"] = ("info",
-                                               "Chave de API salva nesta conta.")
             prompt = _montar_prompt_ia(disciplina, tema, qtd, dificuldade, tipo, n_alt, extra)
             try:
                 with st.spinner("Gerando questoes... isso pode levar alguns segundos."):
                     if provedor == "Google Gemini":
-                        texto = chamar_ia_gemini(chave.strip(), modelo_interno, prompt)
+                        texto = chamar_ia_gemini(chave_salva, modelo_interno, prompt)
                     else:
-                        texto = chamar_ia_openai(chave.strip(), modelo_interno, prompt)
+                        texto = chamar_ia_openai(chave_salva, modelo_interno, prompt)
                 novas = _extrair_json_ia(texto)
                 if not isinstance(novas, list):
                     raise ValueError("A IA nao retornou uma lista de questoes.")
@@ -4156,80 +4122,145 @@ def tela_gerar():
 # 20. TELA: CONFIGURACOES
 # =====================================================================
 def tela_configuracoes():
-    st.markdown("## Configuracoes do Sistema e Visual")
+    st.markdown("## Configuracoes")
     config = carregar_config()
 
-    with st.form("form_config"):
-        st.markdown("**Dados institucionais:**")
-        escola = st.text_input("Nome da Escola / Instituicao:", value=config.get("escola", ""))
-        professor = st.text_input("Nome do Professor:", value=config.get("professor", ""))
+    tab_pessoais, tab_provas, tab_tema, tab_chave = st.tabs(
+        ["Pessoais", "Modelo de Prova (Word)", "Tema", "Chave de API"])
 
-        st.markdown("**Aparencia e Cores Customizadas:**")
-        c1, c2 = st.columns(2)
-        opcoes_ap = ["System", "Dark", "Light"]
-        idx_ap = opcoes_ap.index(config.get("aparencia", "System")) \
-            if config.get("aparencia", "System") in opcoes_ap else 0
-        aparencia = c1.selectbox("Modo de Exibicao:", opcoes_ap, index=idx_ap)
-
-        opcoes_tema = ["blue", "green", "dark-blue", "Personalizado"]
-        idx_tema = opcoes_tema.index(config.get("cor_tema", "blue")) \
-            if config.get("cor_tema", "blue") in opcoes_tema else 0
-        cor_tema = c1.selectbox("Tema Padrao Base:", opcoes_tema, index=idx_tema)
-
-        cor_principal = c1.color_picker("Cor Principal:", value=config.get("cor_principal", "#1f538d"))
-        cor_secundaria = c1.color_picker("Cor Secundaria:", value=config.get("cor_secundaria", "#14375e"))
-        cor_borda_card = c1.color_picker(
-            "Cor da borda superior dos cards:",
-            value=config.get("cor_borda_card") or config.get("cor_principal", "#1f538d"))
-        c1.caption("As cores customizadas valem quando o 'Tema Padrao Base' for 'Personalizado'.")
-
-        opcoes_fonte = ["Arial", "Times New Roman", "Calibri", "Tahoma"]
-        idx_fonte = opcoes_fonte.index(config.get("fonte", "Arial")) \
-            if config.get("fonte", "Arial") in opcoes_fonte else 0
-        fonte = c2.selectbox("Fonte Padrao:", opcoes_fonte, index=idx_fonte)
-        tamanho_fonte = c2.number_input("Tamanho da Fonte:", min_value=8.0, max_value=30.0,
-                                        value=float(config.get("tamanho_fonte", 11)), step=0.5)
-        margem_cm = c2.number_input("Margem (cm):", min_value=0.5, max_value=5.0,
-                                    value=float(config.get("margem_cm", 1.5)), step=0.1)
-        usar_duas_colunas = c2.checkbox("Usar 2 Colunas no Word",
-                                        value=config.get("usar_duas_colunas", True))
-
-        st.markdown("**Itens do Cabecalho das Provas:**")
-        c3 = st.columns(3)
-        mostrar_aluno = c3[0].checkbox("Mostrar linha de NOME DO ALUNO",
-                                       value=config.get("mostrar_aluno", True))
-        mostrar_turma = c3[1].checkbox("Mostrar linha de TURMA",
-                                       value=config.get("mostrar_turma", True))
-        mostrar_data = c3[2].checkbox("Mostrar linha de DATA",
-                                      value=config.get("mostrar_data", True))
-
-        salvar = st.form_submit_button("Salvar Configuracoes", type="primary",
-                                       use_container_width=True)
-
-    if salvar:
-        try:
-            nova_config = {
-                "escola": escola.strip(),
-                "professor": professor.strip(),
-                "fonte": fonte,
-                "tamanho_fonte": int(tamanho_fonte),
-                "margem_cm": float(str(margem_cm).replace(",", ".")),
-                "espacamento_pt": 0,
-                "usar_duas_colunas": usar_duas_colunas,
-                "mostrar_aluno": mostrar_aluno,
-                "mostrar_turma": mostrar_turma,
-                "mostrar_data": mostrar_data,
-                "aparencia": aparencia,
-                "cor_tema": cor_tema,
-                "cor_principal": cor_principal.strip() or "#1f538d",
-                "cor_secundaria": cor_secundaria.strip() or "#14375e",
-                "cor_borda_card": cor_borda_card.strip() or config.get("cor_principal", "#1f538d")
-            }
-            salvar_config(nova_config)
-            st.success("Configuracoes e cores aplicadas com sucesso!")
+    with tab_pessoais:
+        with st.form("form_config_pessoais"):
+            st.markdown("**Dados pessoais:**")
+            escola = st.text_input("Nome da Escola / Instituicao:", value=config.get("escola", ""))
+            professor = st.text_input("Nome do Professor:", value=config.get("professor", ""))
+            salvar_pessoais = st.form_submit_button("Salvar", type="primary",
+                                                    use_container_width=True)
+        if salvar_pessoais:
+            nova = dict(config)
+            nova["escola"] = escola.strip()
+            nova["professor"] = professor.strip()
+            salvar_config(nova)
+            st.success("Dados pessoais salvos com sucesso!")
             st.rerun()
-        except ValueError:
-            st.error("Por favor, verifique se os campos numericos estao corretos.")
+
+    with tab_provas:
+        with st.form("form_config_provas"):
+            st.markdown("**Modelo de prova (Word):**")
+            opcoes_fonte = ["Arial", "Times New Roman", "Calibri", "Tahoma"]
+            idx_fonte = opcoes_fonte.index(config.get("fonte", "Arial")) \
+                if config.get("fonte", "Arial") in opcoes_fonte else 0
+            fonte = st.selectbox("Fonte Padrao:", opcoes_fonte, index=idx_fonte)
+            c1, c2 = st.columns(2)
+            tamanho_fonte = c1.number_input("Tamanho da Fonte:", min_value=8.0, max_value=30.0,
+                                            value=float(config.get("tamanho_fonte", 11)), step=0.5)
+            margem_cm = c2.number_input("Margem (cm):", min_value=0.5, max_value=5.0,
+                                        value=float(config.get("margem_cm", 1.5)), step=0.1)
+            usar_duas_colunas = st.checkbox("Usar 2 Colunas no Word",
+                                            value=config.get("usar_duas_colunas", True))
+            st.markdown("**Itens do Cabecalho das Provas:**")
+            c3 = st.columns(3)
+            mostrar_aluno = c3[0].checkbox("Mostrar linha de NOME DO ALUNO",
+                                           value=config.get("mostrar_aluno", True))
+            mostrar_turma = c3[1].checkbox("Mostrar linha de TURMA",
+                                           value=config.get("mostrar_turma", True))
+            mostrar_data = c3[2].checkbox("Mostrar linha de DATA",
+                                          value=config.get("mostrar_data", True))
+            salvar_provas = st.form_submit_button("Salvar", type="primary",
+                                                  use_container_width=True)
+        if salvar_provas:
+            try:
+                nova = dict(config)
+                nova["fonte"] = fonte
+                nova["tamanho_fonte"] = int(tamanho_fonte)
+                nova["margem_cm"] = float(str(margem_cm).replace(",", "."))
+                nova["espacamento_pt"] = 0
+                nova["usar_duas_colunas"] = usar_duas_colunas
+                nova["mostrar_aluno"] = mostrar_aluno
+                nova["mostrar_turma"] = mostrar_turma
+                nova["mostrar_data"] = mostrar_data
+                salvar_config(nova)
+                st.success("Configuracoes de geracao de provas salvas com sucesso!")
+                st.rerun()
+            except ValueError:
+                st.error("Por favor, verifique se os campos numericos estao corretos.")
+
+    with tab_tema:
+        st.markdown("**Modo de exibicao:**")
+        opcoes_exib = ["Claro", "Escuro"]
+        aparencia_atual = config.get("aparencia", "Light")
+        idx_exib = 1 if aparencia_atual == "Dark" else 0
+        exibicao = st.selectbox("Modo de Exibicao:", opcoes_exib, index=idx_exib)
+        st.caption("As cores do tema sao **fixas** (azul padrao). "
+                   "A escolha de cores personalizadas voltara em uma proxima versao.")
+        if st.button("Salvar Modo de Exibicao", type="primary",
+                     use_container_width=True, key="cfg_salvar_tema"):
+            nova = dict(config)
+            nova["aparencia"] = "Dark" if exibicao == "Escuro" else "Light"
+            salvar_config(nova)
+            st.success("Modo de exibicao atualizado!")
+            st.rerun()
+
+    with tab_chave:
+        chave_salva = (carregar_chave_ia() or "").strip()
+        opcoes_prov = ["Google Gemini", "OpenAI / ChatGPT"]
+        provedor_ini = config.get("provedor_ia", "Google Gemini")
+        idx_prov = opcoes_prov.index(provedor_ini) if provedor_ini in opcoes_prov else 0
+        provedor = st.selectbox("Provedor de IA:", opcoes_prov, index=idx_prov)
+        if st.button("\u2139\ufe0f Como obter minha chave?", key="ia_ajuda",
+                     use_container_width=True):
+            st.session_state["ia_mostrar_ajuda"] = not st.session_state.get("ia_mostrar_ajuda")
+        if st.session_state.get("ia_mostrar_ajuda"):
+            with st.container(border=True):
+                if provedor == "Google Gemini":
+                    st.markdown(
+                        "**Tutorial - Gemini (Google):**\n\n"
+                        "1. Abra o **Google AI Studio**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)\n\n"
+                        "2. Entre com sua conta Google.\n\n"
+                        "3. Clique em **Create API key** (criar chave).\n\n"
+                        "4. Escolha um projeto (ou crie um) e confirme com **Create**.\n\n"
+                        "5. Copie a chave gerada (comeca com **AIza...**) e cole no campo abaixo.")
+                else:
+                    st.markdown(
+                        "**Tutorial - OpenAI (ChatGPT):**\n\n"
+                        "1. Abra: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)\n\n"
+                        "2. Entre com sua conta OpenAI.\n\n"
+                        "3. Clique em **Create new secret key**.\n\n"
+                        "4. Copie a chave gerada (comeca com **sk-...**) e cole no campo abaixo.")
+                st.caption("Dica: o app detecta sozinho o provedor pelo inicio da chave "
+                           "(AIza = Gemini, sk- = OpenAI).")
+        with st.form("form_config_chave"):
+            chave = st.text_input("Sua chave de API:", type="password", key="ia_chave",
+                                  value=chave_salva,
+                                  autocomplete="new-password",
+                                  placeholder="Cole aqui sua chave (ex: AIza..., sk-...)")
+            if chave_salva:
+                st.caption("Sua chave ja esta salva nesta conta; nao precisa digitar de novo.")
+            st.checkbox("Salvar minha chave nesta conta",
+                        value=True, key="ia_salvar_chave")
+            salvar_chave_btn = st.form_submit_button("Salvar Chave de API", type="primary",
+                                                     use_container_width=True)
+        if chave_salva and st.button("Apagar chave salva", key="ia_apagar_chave",
+                                     use_container_width=True):
+            salvar_chave_ia("")
+            st.session_state["ia_info"] = ("info", "Chave de API removida da sua conta.")
+            st.rerun()
+        if salvar_chave_btn:
+            if chave.strip():
+                nova_chave = chave.strip()
+                salvar_chave_ia(nova_chave)
+                nova = dict(config)
+                if nova_chave.lower().startswith("aiza"):
+                    nova["provedor_ia"] = "Google Gemini"
+                elif nova_chave.lower().startswith("sk-"):
+                    nova["provedor_ia"] = "OpenAI / ChatGPT"
+                else:
+                    nova["provedor_ia"] = provedor
+                salvar_config(nova)
+                st.session_state["ia_info"] = ("info", "Chave de API salva nesta conta.")
+                st.success("Chave de API salva nesta conta.")
+            else:
+                st.warning("Informe a chave para salvar.")
+            st.rerun()
 
 # =====================================================================
 # 21. TELA DE BOAS-VINDAS (primeiro acesso)
