@@ -16,6 +16,7 @@ import hashlib
 import unicodedata
 import hmac
 import shutil
+from urllib.parse import unquote
 from datetime import datetime, timedelta
 
 from docx import Document
@@ -565,7 +566,10 @@ def _autologin_por_cookie():
         valor = st.context.cookies.get(EI_COOKIE, "")
     except Exception:
         return False
-    if not isinstance(valor, str) or not valor or "|" not in valor:
+    if not isinstance(valor, str) or not valor:
+        return False
+    valor = unquote(valor)
+    if "|" not in valor:
         return False
     usuario, token = valor.split("|", 1)
     conta = conta_atual(usuario)
