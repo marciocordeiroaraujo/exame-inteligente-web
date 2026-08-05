@@ -1305,6 +1305,22 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stPopoverBody"] [data-baseweb="popover"] li {
     color: #1f1f1f !important;
 }
+/* Wrappers internos do popover herdavam fundo escuro do tema Dark:
+   o divisor entre o body (branco) e o conteudo e o envoltorio do
+   textarea (stTextAreaRootElement) continuavam com cor de fundo
+   escura. Forcamos branco nesses containers. */
+[data-testid="stPopoverBody"] > div {
+    background: #ffffff !important; color: #1f1f1f !important;
+}
+[data-testid="stPopoverBody"] [data-testid="stTextAreaRootElement"],
+[data-testid="stPopoverBody"] [data-testid="stTextAreaRootElement"] > div,
+[data-testid="stPopoverBody"] div[data-baseweb="textarea"],
+[data-testid="stPopoverBody"] div[data-baseweb="textarea"] > div {
+    background: #ffffff !important; color: #1f1f1f !important;
+}
+[data-testid="stPopoverBody"] [data-testid="stTextAreaRootElement"] textarea {
+    color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
+}
 .stAlert {border-radius: 10px; border: 1px solid var(--borda);}
 [data-testid="stDataFrame"] {border: 1px solid var(--borda); border-radius: 12px; overflow: hidden;}
 
