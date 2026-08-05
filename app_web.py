@@ -1632,9 +1632,30 @@ div[class*="st-key-login_card"] {
     letter-spacing: 4px; text-transform: uppercase; color: #4f46e5 !important;
 }
 .login-sub { color: #6b7280 !important; font-size: .9rem; margin: 4px 0 1.5rem 0; }
-.login-foot {
-    margin-top: 1.6rem; text-align: center; color: #9ca3af !important;
-    font-size: .78rem; border-top: 1px solid #f0f2f5; padding-top: 1.1rem;
+.login-hint {
+    text-align: center; color: #9ca3af !important; font-size: .85rem;
+    margin: 1.2rem 0 0 0; font-style: italic;
+}
+div[class*="st-key-login_card"] {
+    overflow: hidden;
+}
+div[class*="st-key-login_card"]:has([data-testid="stTextInput"]) {
+    animation: eiExpand .55s cubic-bezier(.22,.85,.25,1);
+}
+@keyframes eiExpand {
+    0% { max-height: 330px; opacity: .35; }
+    60% { opacity: .85; }
+    100% { max-height: 1400px; opacity: 1; }
+}
+/* ---------- Botao Recolher ---------- */
+div[class*="st-key-login_recolher"] button {
+    background: transparent !important; border: none !important;
+    color: #9ca3af !important; font-size: .8rem !important;
+    box-shadow: none !important; padding: 2px !important; height: 32px !important;
+    margin-top: .6rem !important;
+}
+div[class*="st-key-login_recolher"] button:hover {
+    color: #4f46e5 !important; background: transparent !important;
 }
 /* ---------- Abas Entrar / Criar Conta ---------- */
 div[class*="st-key-tab_entrar"] button, div[class*="st-key-tab_criar"] button {
@@ -2551,7 +2572,7 @@ def tela_login():
             'planos de aula, questões e provas.</div>',
             unsafe_allow_html=True)
 
-        modo = st.session_state.get("login_modo", "Entrar")
+        modo = st.session_state.get("login_modo")
         c_tab = st.columns(2, gap="small")
         if c_tab[0].button("Entrar", key="tab_entrar",
                            type="primary" if modo == "Entrar" else "secondary",
@@ -2563,6 +2584,13 @@ def tela_login():
                            use_container_width=True):
             st.session_state["login_modo"] = "Criar Conta"
             st.rerun()
+
+        if modo is None:
+            st.markdown(
+                '<div class="login-hint">Escolha acima como quer continuar: '
+                'entre com a sua conta ou crie uma nova.</div>',
+                unsafe_allow_html=True)
+            return
 
         if modo == "Entrar":
             with st.form("form_login"):
@@ -2681,28 +2709,10 @@ def tela_login():
                     _cad.pop("cad_pend_senha", None)
                     st.rerun()
 
-        st.markdown(
-            '<div class="login-foot">Exame Inteligente 4.0 &middot; '
-            'Seus dados ficam guardados na sua conta.</div>',
-            unsafe_allow_html=True)
-
-        try:
-            _diag_cookie = bool(st.context.cookies.get(EI_COOKIE, ""))
-            _diag_xsrf = bool(st.context.cookies.get("_streamlit_xsrf", ""))
-        except Exception:
-            _diag_cookie = False
-            _diag_xsrf = False
-        try:
-            _diag_ei_auth = "ei_auth" in st.query_params
-            _diag_qp = len(st.query_params)
-        except Exception:
-            _diag_ei_auth = False
-            _diag_qp = -1
-        st.caption(
-            f"ei-build 20260805b &middot; cookie={'sim' if _diag_cookie else 'nao'} "
-            f"&middot; xsrf={'sim' if _diag_xsrf else 'nao'} "
-            f"&middot; qp={_diag_qp} &middot; ei_auth={'sim' if _diag_ei_auth else 'nao'}"
-        )
+        if st.button("Recolher tela", key="login_recolher",
+                     use_container_width=False):
+            st.session_state.pop("login_modo", None)
+            st.rerun()
 
 # =====================================================================
 # 7. CALENDARIO EM HTML
