@@ -665,7 +665,7 @@ def _enviar_codigo_verificacao(email):
     )
     ok = _enviar_email(email, "Seu codigo de verificacao - Exame Inteligente", corpo)
     if ok:
-        return True, "Codigo enviado para o seu email.", codigo
+        return True, "Codigo enviado para o seu email.", None
     modo_teste = False
     try:
         modo_teste = bool(st.config.get_option("global.appTest"))
@@ -674,7 +674,7 @@ def _enviar_codigo_verificacao(email):
     if modo_teste:
         return True, (f"[MODO TESTE] Codigo nao enviado (SMTP ausente). "
                       f"Use o codigo {codigo} na tela."), codigo
-    return False, "Nao foi possivel enviar o codigo. Verifique o email e tente novamente.", codigo
+    return False, "Nao foi possivel enviar o codigo. Verifique o email e tente novamente.", None
 
 # ---- Lembrar da conta (cookie) ----
 EI_COOKIE = "ei_usuario"
@@ -2617,7 +2617,8 @@ def tela_login():
                             _cad["cad_pend_senha"] = cad_senha
                             _cad["cad_etapa"] = "codigo"
                             _cad["cad_pend_enviou"] = True
-                            _cad["cad_pend_codigo_teste"] = codigo_visivel
+                            if codigo_visivel:
+                                _cad["cad_pend_codigo_teste"] = codigo_visivel
                             st.rerun()
                         else:
                             st.error(msg)
@@ -2668,7 +2669,8 @@ def tela_login():
                     ok, msg, codigo_visivel = _enviar_codigo_verificacao(email_c)
                     if ok:
                         st.session_state["cad_pend_enviou"] = True
-                        st.session_state["cad_pend_codigo_teste"] = codigo_visivel
+                        if codigo_visivel:
+                            st.session_state["cad_pend_codigo_teste"] = codigo_visivel
                     else:
                         st.error(msg)
                     st.rerun()
