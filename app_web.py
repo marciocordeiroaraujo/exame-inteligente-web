@@ -2477,7 +2477,7 @@ def tela_login():
             _diag_ei_auth = False
             _diag_qp = -1
         st.caption(
-            f"ei-build 20260804b &middot; cookie={'sim' if _diag_cookie else 'nao'} "
+            f"ei-build 20260805a &middot; cookie={'sim' if _diag_cookie else 'nao'} "
             f"&middot; xsrf={'sim' if _diag_xsrf else 'nao'} "
             f"&middot; qp={_diag_qp} &middot; ei_auth={'sim' if _diag_ei_auth else 'nao'}"
         )
@@ -2532,23 +2532,26 @@ CORES_POSTIT = [
     ("Rosa Pastel", "#ffc6ff"),
 ]
 
-@st.dialog("Novo / Editar Post-it")
-def dialog_postit(nota=None):
+def form_postit(nota=None, uid="frm"):
     grade = carregar_grade()
     turmas = ["Geral"] + sorted(list(set([i["turma"] for i in grade])))
     is_edicao = nota is not None
 
-    titulo = st.text_input("Titulo do lembrete:", value=nota.get("titulo", "") if is_edicao else "")
+    titulo = st.text_input("Titulo do lembrete:", value=nota.get("titulo", "") if is_edicao else "",
+                           key=f"{uid}_titulo")
     turma = st.selectbox("Atrelar a turma:", turmas,
-                         index=turmas.index(nota["turma"]) if is_edicao and nota.get("turma") in turmas else 0)
+                         index=turmas.index(nota["turma"]) if is_edicao and nota.get("turma") in turmas else 0,
+                         key=f"{uid}_turma")
     nomes_cores = [n for n, _ in CORES_POSTIT]
     cores_vals = [c for _, c in CORES_POSTIT]
     cor_padrao = nota.get("cor", "#fff3a3") if is_edicao else "#fff3a3"
     idx_cor = cores_vals.index(cor_padrao) if cor_padrao in cores_vals else 0
-    cor = st.select_slider("Cor do post-it:", options=nomes_cores, value=nomes_cores[idx_cor])
+    cor = st.select_slider("Cor do post-it:", options=nomes_cores, value=nomes_cores[idx_cor],
+                           key=f"{uid}_cor")
     cor_hex = cores_vals[nomes_cores.index(cor)]
     conteudo = st.text_area("Anotacao / Lembrete:",
-                            value=nota.get("conteudo", "") if is_edicao else "")
+                            value=nota.get("conteudo", "") if is_edicao else "",
+                            key=f"{uid}_conteudo")
 
     data_default = None
     if is_edicao:
@@ -2562,9 +2565,9 @@ def dialog_postit(nota=None):
                     data_default = None
     if data_default is None:
         data_default = datetime.now().date()
-    data_lembrete = st.date_input("Data do lembrete:", value=data_default)
+    data_lembrete = st.date_input("Data do lembrete:", value=data_default, key=f"{uid}_data")
 
-    if st.button("Salvar Post-it", type="primary", use_container_width=True):
+    if st.button("Salvar Post-it", type="primary", use_container_width=True, key=f"{uid}_salvar"):
         if not titulo.strip() or not conteudo.strip():
             st.error("Preencha o titulo e o conteudo.")
             return
@@ -2589,8 +2592,7 @@ def dialog_postit(nota=None):
         salvar_anotacoes(anotacoes)
         st.rerun()
 
-@st.dialog("Visualizar / Editar Plano")
-def dialog_plano(data_str, index_plano):
+def form_plano(data_str, index_plano, uid="frm"):
     planos = carregar_planos()
     if data_str not in planos or index_plano >= len(planos[data_str]):
         st.info("Plano nao encontrado.")
@@ -2601,7 +2603,8 @@ def dialog_plano(data_str, index_plano):
         f"**Data:** {data_str} | **Horario:** {plano.get('horario','')} | "
         f"**Turma:** {plano.get('turma','')} | **Disciplina:** {plano.get('disciplina','Geral')}")
 
-    novo_tema = st.text_input("Titulo / Tema da aula:", value=plano.get("tema", ""))
+    novo_tema = st.text_input("Titulo / Tema da aula:", value=plano.get("tema", ""),
+                              key=f"{uid}_tema")
 
     campos = [
         ("Metodologia / Atividades", "metodologia"),
@@ -2623,10 +2626,11 @@ def dialog_plano(data_str, index_plano):
     }
     for rotulo, chave in campos:
         with abas[mapa_abas[chave]]:
-            novos_valores[chave] = st.text_area(rotulo, value=plano.get(chave, ""))
+            novos_valores[chave] = st.text_area(rotulo, value=plano.get(chave, ""),
+                                                key=f"{uid}_{chave}")
 
     c1, c2 = st.columns(2)
-    if c1.button("Salvar Alteracoes", type="primary", use_container_width=True):
+    if c1.button("Salvar Alteracoes", type="primary", use_container_width=True, key=f"{uid}_salvar"):
         if not novo_tema.strip():
             st.error("O tema da aula e obrigatorio.")
             return
@@ -2636,7 +2640,7 @@ def dialog_plano(data_str, index_plano):
         planos[data_str][index_plano] = plano
         salvar_planos(planos)
         st.rerun()
-    if c2.button("Excluir Plano", use_container_width=True):
+    if c2.button("Excluir Plano", use_container_width=True, key=f"{uid}_excluir"):
         del planos[data_str][index_plano]
         if len(planos[data_str]) == 0:
             del planos[data_str]
@@ -2774,8 +2778,8 @@ def fragmento_dashboard():
         with st.container(key="card_dash_mural"):
             topo = st.columns([3, 1])
             topo[0].markdown('<div class="card-titulo">Lembretes</div>', unsafe_allow_html=True)
-            if topo[1].button("+ Novo", key="dash_novo_postit", use_container_width=True):
-                dialog_postit()
+            with topo[1].popover("+ Novo", key="dash_novo_pop", use_container_width=True):
+                form_postit(None, uid="dash_novo")
             if not anotacoes:
                 st.caption("Nenhum post-it. Crie um no botao + Novo.")
             else:
@@ -2794,8 +2798,8 @@ def fragmento_dashboard():
                             f'</div>',
                             unsafe_allow_html=True)
                         b1, b2 = st.columns(2)
-                        if b1.button("Editar", key=f"dash_edit_{nota.get('id')}", use_container_width=True):
-                            dialog_postit(nota)
+                        with b1.popover("Editar", key=f"dash_edit_pop_{nota.get('id')}", use_container_width=True):
+                            form_postit(nota, uid=f"dash_edit_{nota.get('id')}")
                         if b2.button("Excluir", key=f"dash_del_{nota.get('id')}", use_container_width=True):
                             anotacoes = [n for n in anotacoes if n.get("id") != nota.get("id")]
                             salvar_anotacoes(anotacoes)
@@ -2815,9 +2819,9 @@ def fragmento_dashboard():
                         f'<div class="dash-item-sub">'
                         f'{plano.get("disciplina","Geral")} - {plano.get("tema","Sem tema")}</div></div>',
                         unsafe_allow_html=True)
-                    if st.button("Visualizar / Editar", key=f"dash_plano_{dia_selecionada}_{i}",
-                                 use_container_width=True):
-                        dialog_plano(dia_selecionada, i)
+                    with st.popover("Visualizar / Editar", key=f"dash_plano_pop_{dia_selecionada}_{i}",
+                                    use_container_width=True):
+                        form_plano(dia_selecionada, i, uid=f"dash_plano_{dia_selecionada}_{i}")
             else:
                 st.caption("Nenhuma aula registrada neste dia.")
 
@@ -3587,8 +3591,8 @@ def montar_aba_listar_planos(grade, config):
                     f'{plano.get("horario","")} | {plano.get("turma","")} ({plano.get("disciplina","Geral")})</div>'
                     f'<div class="dash-item-sub">Tema: {plano.get("tema","")}</div></div>',
                     unsafe_allow_html=True)
-                if st.button("Visualizar / Editar", key=f"plist_{data_str}_{i}"):
-                    dialog_plano(data_str, i)
+                with st.popover("Visualizar / Editar", key=f"plist_pop_{data_str}_{i}", use_container_width=True):
+                    form_plano(data_str, i, uid=f"plist_{data_str}_{i}")
         if not encontrou:
             st.caption("Nenhum plano registrado para os filtros neste mes.")
     else:
@@ -3632,8 +3636,8 @@ def tela_anotacoes():
     c1, c2 = st.columns([3, 1])
     turmas = ["Todas as Notas"] + sorted(list(set([i["turma"] for i in grade])))
     filtro = c1.selectbox("Filtrar mural", turmas)
-    if c2.button("+ Novo Post-it", type="primary", use_container_width=True):
-        dialog_postit()
+    with c2.popover("➕ Novo Post-it", type="primary", key="anot_novo_pop", use_container_width=True):
+        form_postit(None, uid="anot_novo")
 
     notas = anotacoes
     if filtro != "Todas as Notas":
@@ -3656,8 +3660,8 @@ def tela_anotacoes():
                 f'<div class="pt-conteudo">{esc(nota.get("conteudo",""))}</div></div>',
                 unsafe_allow_html=True)
             b1, b2 = st.columns(2)
-            if b1.button("Editar", key=f"anot_edit_{nota.get('id')}", use_container_width=True):
-                dialog_postit(nota)
+            with b1.popover("Editar", key=f"anot_edit_pop_{nota.get('id')}", use_container_width=True):
+                form_postit(nota, uid=f"anot_edit_{nota.get('id')}")
             if b2.button("Excluir", key=f"anot_del_{nota.get('id')}", use_container_width=True):
                 anotacoes = [n for n in anotacoes if n.get("id") != nota.get("id")]
                 salvar_anotacoes(anotacoes)
@@ -4416,18 +4420,17 @@ def tela_central_questoes():
 # =====================================================================
 # 18. TELA: CATALOGO DE QUESTOES
 # =====================================================================
-@st.dialog("Editar Questão")
-def dialog_editar_questao(id_q):
+def form_editar_questao(id_q, uid="frm"):
     banco = carregar_banco()
     q = next((item for item in banco if item.get("id") == id_q), None)
     if not q:
         st.info("Questão nao encontrada.")
         return
-    novo_enun = st.text_area("Enunciado:", value=q.get("enunciado", ""), height=110)
-    nova_perg = st.text_area("Pergunta Direta:", value=q.get("pergunta_direta", ""), height=60)
-    novo_tema = st.text_input("Tema / Descritor:", value=q.get("tema", ""))
-    novo_gab = st.text_input("Gabarito:", value=q.get("gabarito", ""))
-    if st.button("Salvar Alteracoes", type="primary", use_container_width=True):
+    novo_enun = st.text_area("Enunciado:", value=q.get("enunciado", ""), height=110, key=f"{uid}_enun")
+    nova_perg = st.text_area("Pergunta Direta:", value=q.get("pergunta_direta", ""), height=60, key=f"{uid}_perg")
+    novo_tema = st.text_input("Tema / Descritor:", value=q.get("tema", ""), key=f"{uid}_tema")
+    novo_gab = st.text_input("Gabarito:", value=q.get("gabarito", ""), key=f"{uid}_gab")
+    if st.button("Salvar Alteracoes", type="primary", use_container_width=True, key=f"{uid}_salvar"):
         q["enunciado"] = novo_enun.strip()
         q["pergunta_direta"] = nova_perg.strip()
         q["tema"] = novo_tema.strip()
@@ -4435,15 +4438,14 @@ def dialog_editar_questao(id_q):
         salvar_banco(banco)
         st.rerun()
 
-@st.dialog("Confirmar Exclusao")
-def dialog_excluir_questao(id_q):
+def form_excluir_questao(id_q, uid="frm"):
     st.warning("Tem certeza que deseja excluir esta questao permanentemente?")
     c1, c2 = st.columns(2)
-    if c1.button("Sim, excluir", type="primary", use_container_width=True):
+    if c1.button("Sim, excluir", type="primary", use_container_width=True, key=f"{uid}_sim"):
         banco = carregar_banco()
         salvar_banco([q for q in banco if q.get("id") != id_q])
         st.rerun()
-    if c2.button("Cancelar", use_container_width=True):
+    if c2.button("Cancelar", use_container_width=True, key=f"{uid}_cancelar"):
         st.rerun()
 
 def tela_catalogo():
@@ -4480,10 +4482,10 @@ def tela_catalogo():
                 perg = perg[:130] + "..."
             st.write(perg)
             c1, c2 = st.columns([1, 1])
-            if c1.button("Editar Rápido", key=f"cat_ed_{q['id']}"):
-                dialog_editar_questao(q["id"])
-            if c2.button("Excluir", key=f"cat_del_{q['id']}"):
-                dialog_excluir_questao(q["id"])
+            with c1.popover("Editar Rápido", key=f"cat_ed_pop_{q['id']}", use_container_width=True):
+                form_editar_questao(q["id"], uid=f"cat_ed_{q['id']}")
+            with c2.popover("Excluir", key=f"cat_del_pop_{q['id']}", use_container_width=True):
+                form_excluir_questao(q["id"], uid=f"cat_del_{q['id']}")
 
 # =====================================================================
 # 19. TELA: GERAR ATIVIDADES (WORD)
