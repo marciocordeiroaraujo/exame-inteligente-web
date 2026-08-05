@@ -3416,6 +3416,95 @@ def distribuir_planos(planos, grade, td_selecionadas, tema, data_inicio,
         salvar_planos(planos)
     return resumo
 
+def gerar_excel_planos(planos, mes, ano, turmas_filtro=None):
+    """Gera um arquivo Excel com uma aba por turma contendo todos os planos
+    de aula registrados no mes/ano. Retorna BytesIO ou None se nao houver dados."""
+    dados_por_turma = {}
+    for data_str, lista in planos.items():
+        try:
+            data_obj = datetime.strptime(data_str, "%d/%m/%Y")
+        except Exception:
+            continue
+        if data_obj.month != mes or data_obj.year != ano:
+            continue
+        for plano in lista:
+            turma = str(plano.get("turma", "Sem Turma"))
+            if turmas_filtro and turma not in turmas_filtro:
+                continue
+            dados_por_turma.setdefault(turma, []).append((data_obj, data_str, plano))
+
+    if not dados_por_turma:
+        return None
+
+    cabecalho = (["Data", "Dia da Semana", "Horario", "Disciplina", "Tema"]
+                 + [rotulo for rotulo, _ in CAMPOS_PLANO])
+    campos_chaves = [chave for _, chave in CAMPOS_PLANO]
+
+    fill_cab = PatternFill(start_color="1F538D", end_color="1F538D", fill_type="solid")
+    font_cab = Font(bold=True, color="FFFFFF")
+    border_thin = Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+    align_cab = Alignment(horizontal="center", vertical="center")
+    align_cel = Alignment(vertical="top", wrap_text=True)
+
+    def _numero_aula(horario):
+        m = re.search(r"(\d+)", str(horario))
+        return int(m.group(1)) if m else 0
+
+    nomes_abas = {}
+    for turma in sorted(dados_por_turma):
+        base = re.sub(r"[\[\]:*?/\\]", "", turma).strip() or "Turma"
+        base = base[:31]
+        nome = base
+        n = 2
+        while nome in nomes_abas.values():
+            nome = f"{base[:28]}_{n}"
+            n += 1
+        nomes_abas[turma] = nome
+
+    larguras = [11, 15, 10, 14, 30] + [40] * len(campos_chaves)
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    for turma, nome_aba in nomes_abas.items():
+        ws = wb.create_sheet(nome_aba)
+        for col, titulo in enumerate(cabecalho, 1):
+            c = ws.cell(row=1, column=col, value=titulo)
+            c.font = font_cab
+            c.fill = fill_cab
+            c.alignment = align_cab
+            c.border = border_thin
+
+        linhas = sorted(dados_por_turma[turma],
+                        key=lambda x: (x[0], _numero_aula(x[2].get("horario", "")), x[1]))
+        for i, (data_obj, data_str, plano) in enumerate(linhas, 2):
+            valores = [data_str,
+                       DIAS_COMPLETOS[data_obj.weekday()],
+                       str(plano.get("horario", "")),
+                       str(plano.get("disciplina", "Geral")),
+                       str(plano.get("tema", ""))]
+            valores += [str(plano.get(chave, "")) for chave in campos_chaves]
+            linhas_est = 1
+            for col, val in enumerate(valores, 1):
+                c = ws.cell(row=i, column=col, value=val)
+                c.alignment = align_cel
+                c.border = border_thin
+                if val:
+                    qtd_linhas = (len(val) + (larguras[col - 1] // 2) - 1) // (larguras[col - 1] // 2)
+                    linhas_est = max(linhas_est, qtd_linhas)
+            ws.row_dimensions[i].height = max(20, linhas_est * 14 + 4)
+
+        ws.freeze_panes = "A2"
+        if ws.max_row > 1:
+            ws.auto_filter.ref = f"A1:{get_column_letter(len(cabecalho))}{ws.max_row}"
+        for col, largura in zip(range(1, len(cabecalho) + 1), larguras):
+            ws.column_dimensions[get_column_letter(col)].width = largura
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
 def montar_aba_listar_planos(grade, config):
     hoje = datetime.now()
     pm = val_param("pm", hoje.strftime("%m/%Y"))
@@ -3450,7 +3539,20 @@ def montar_aba_listar_planos(grade, config):
 
     planos = carregar_planos()
     turmas_unicas = ["Todas as Turmas"] + sorted(list(set([i["turma"] for i in grade])))
-    turma_filtro = st.selectbox("Filtrar por turma", turmas_unicas)
+    c_filtro, c_export = st.columns([3, 1], vertical_alignment="center")
+    turma_filtro = c_filtro.selectbox("Filtrar por turma", turmas_unicas)
+    turmas_export = None if turma_filtro == "Todas as Turmas" else [turma_filtro]
+    excel_planos = gerar_excel_planos(planos, mes, ano, turmas_export)
+    if excel_planos is None:
+        c_export.button("Exportar para Excel", disabled=True,
+                        use_container_width=True,
+                        help="Nao ha planos registrados neste mes para exportar.")
+    else:
+        c_export.download_button(
+            "Exportar para Excel", data=excel_planos,
+            file_name=f"Planos_{MESES_PT[mes]}_{ano}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary", use_container_width=True)
     mostrar_audit = st.toggle("Mostrar Auditoria (Faltas de Planejamento)", value=False)
 
     dark = config.get("aparencia", "System") == "Dark"
