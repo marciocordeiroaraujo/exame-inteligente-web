@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # =====================================================================
 # EXAME INTELIGENTE 4.0 - VERSAO WEB (Streamlit)
 # Porta do app_desktop.py para funcionar como site no navegador,
@@ -18,6 +18,10 @@ import hmac
 import shutil
 import pathlib
 from urllib.parse import unquote
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta
@@ -78,6 +82,7 @@ ARQUIVO_CONFIG_GRADE = "config_grade.json"
 ARQUIVO_AVALIACOES = "avaliacoes.json"
 PASTA_IMAGENS = "imagens_apoio"
 ARQUIVO_USUARIOS = "usuarios.json"
+ARQUIVO_VERIFICACOES = "verificacoes_email.json"
 PASTA_DADOS = "dados_usuarios"
 
 if not os.path.exists(PASTA_IMAGENS):
@@ -317,6 +322,8 @@ def _chave_de_caminho(caminho):
     partes = [p for p in norm.split("/") if p]
     if partes == [ARQUIVO_USUARIOS]:
         return "g::" + ARQUIVO_USUARIOS
+    if partes == [ARQUIVO_VERIFICACOES]:
+        return "g::" + ARQUIVO_VERIFICACOES
     if len(partes) >= 3 and partes[0] == PASTA_DADOS:
         return "u::" + partes[1] + "::" + "/".join(partes[2:])
     return None
@@ -445,10 +452,20 @@ def usuario_existe(usuario):
     alvo = (usuario or "").lower()
     return any(u.get("usuario", "").lower() == alvo for u in carregar_usuarios())
 
-def autenticar_usuario(usuario, senha):
-    alvo = (usuario or "").strip().lower()
+def email_existe(email):
+    alvo = (email or "").strip().lower()
+    return any(str(u.get("email", "")).lower() == alvo for u in carregar_usuarios())
+
+def _login_alvo(login):
+    login = (login or "").strip()
+    return login.lower(), login
+
+def autenticar_usuario(login, senha):
+    alvo = (login or "").strip().lower()
     for u in carregar_usuarios():
-        if u.get("usuario", "").lower() == alvo:
+        ident = (str(u.get("usuario", "")) or "").lower()
+        email_u = (str(u.get("email", "")) or "").lower()
+        if ident == alvo or (alvo and email_u == alvo):
             salt, digest = u.get("senha_hash", ["", ""])
             if not salt:
                 return None
@@ -509,13 +526,15 @@ def _ajustar_imagens_banco(pasta):
     except Exception:
         pass
 
-def criar_conta(nome, usuario, senha):
+def criar_conta(nome, usuario, senha, email="", email_verificado=False):
     usuarios = carregar_usuarios()
     primeira = len(usuarios) == 0
     salt, digest = hash_senha(senha)
     usuarios.append({
         "nome": nome.strip(),
         "usuario": usuario.strip(),
+        "email": (email or "").strip().lower(),
+        "email_verificado": bool(email_verificado),
         "senha_hash": [salt, digest],
         "cookie_token": os.urandom(16).hex(),
         "onboarding_pendente": bool(not nome.strip()),
@@ -545,6 +564,117 @@ def concluir_onboarding(nome, escola):
     config["professor"] = (nome or "").strip()
     config["escola"] = (escola or "").strip()
     salvar_config(config)
+
+# ---- Verificacao de email (codigo enviado por SMTP) ----
+def _smtp_config():
+    """Configuracoes SMTP vindas de st.secrets['smtp'] (host, port, user, password, from, starttls)."""
+    try:
+        s = dict(st.secrets.get("smtp", {}) or {})
+        return s if s.get("host") and s.get("user") else {}
+    except Exception:
+        return {}
+
+def _smtp_disponivel():
+    cfg = _smtp_config()
+    return bool(cfg.get("host") and cfg.get("user"))
+
+def _enviar_email(destino, assunto, corpo_html):
+    cfg = _smtp_config()
+    if not cfg:
+        return False
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = assunto
+        msg["From"] = cfg.get("from") or cfg.get("user")
+        msg["To"] = destino
+        msg.attach(MIMEText(corpo_html, "html", "utf-8"))
+        porta = int(cfg.get("port", 587))
+        servidor = smtplib.SMTP(cfg["host"], porta, timeout=30)
+        if str(cfg.get("starttls", "true")).lower() != "false":
+            servidor.starttls()
+        servidor.login(cfg["user"], cfg["password"])
+        servidor.sendmail(msg["From"], [destino], msg.as_string())
+        servidor.quit()
+        return True
+    except Exception as e:
+        print("[EMAIL] Falha ao enviar para", destino, ":", e)
+        return False
+
+def _novo_codigo_verificacao(email, valido_por_min=15):
+    codigo = f"{random.randint(100000, 999999)}"
+    registros = carregar_json(ARQUIVO_VERIFICACOES, {})
+    if not isinstance(registros, dict):
+        registros = {}
+    alvo = (email or "").strip().lower()
+    registros[alvo] = {
+        "codigo": codigo,
+        "expira_em": (datetime.now() + timedelta(minutes=valido_por_min)).isoformat(),
+        "tentativas": 0,
+        "criado_em": datetime.now().isoformat(),
+    }
+    salvar_json(ARQUIVO_VERIFICACOES, registros)
+    return codigo
+
+def _codigo_verificacao_atual(email):
+    registros = carregar_json(ARQUIVO_VERIFICACOES, {})
+    if not isinstance(registros, dict):
+        return None
+    reg = registros.get((email or "").strip().lower())
+    if not reg:
+        return None
+    try:
+        if datetime.now() > datetime.fromisoformat(reg.get("expira_em", "")):
+            return None
+    except Exception:
+        pass
+    return reg
+
+def _validar_codigo(email, codigo_digitado):
+    reg = _codigo_verificacao_atual(email)
+    if not reg:
+        return False, "Codigo expirado ou inexistente. Solicite um novo."
+    registros = carregar_json(ARQUIVO_VERIFICACOES, {})
+    alvo = (email or "").strip().lower()
+    if int(reg.get("tentativas", 0)) >= 5:
+        registros.pop(alvo, None)
+        salvar_json(ARQUIVO_VERIFICACOES, registros)
+        return False, "Muitas tentativas. Solicite um novo codigo."
+    if hmac.compare_digest(str(reg.get("codigo", "")), str(codigo_digitado or "").strip()):
+        registros.pop(alvo, None)
+        salvar_json(ARQUIVO_VERIFICACOES, registros)
+        return True, "Email verificado com sucesso."
+    registros[alvo]["tentativas"] = int(reg.get("tentativas", 0)) + 1
+    salvar_json(ARQUIVO_VERIFICACOES, registros)
+    restantes = 5 - registros[alvo]["tentativas"]
+    return False, f"Codigo incorreto. Tentativas restantes: {restantes}."
+
+def _enviar_codigo_verificacao(email):
+    """Gera, envia por email e retorna (ok, msg, codigo_visivel)."""
+    import html as _html
+    codigo = _novo_codigo_verificacao(email)
+    corpo = (
+        f"<div style='font-family:Arial,sans-serif;max-width:480px;margin:auto;"
+        f"border:1px solid #d3d8e0;border-radius:12px;padding:24px'>"
+        f"<h2 style='color:#1f538d;margin-top:0'>Exame Inteligente</h2>"
+        f"<p>Seu codigo de verificacao para criar a conta:</p>"
+        f"<p style='font-size:28px;letter-spacing:6px;font-weight:bold;color:#1f538d'>"
+        f"{_html.escape(codigo)}</p>"
+        f"<p>O codigo expira em <b>15 minutos</b>.</p>"
+        f"<p style='color:#888;font-size:12px'>Se voce nao solicitou este codigo, ignore este email.</p>"
+        f"</div>"
+    )
+    ok = _enviar_email(email, "Seu codigo de verificacao - Exame Inteligente", corpo)
+    if ok:
+        return True, "Codigo enviado para o seu email.", codigo
+    modo_teste = False
+    try:
+        modo_teste = bool(st.config.get_option("global.appTest"))
+    except Exception:
+        modo_teste = False
+    if modo_teste:
+        return True, (f"[MODO TESTE] Codigo nao enviado (SMTP ausente). "
+                      f"Use o codigo {codigo} na tela."), codigo
+    return False, "Nao foi possivel enviar o codigo. Verifique o email e tente novamente.", codigo
 
 # ---- Lembrar da conta (cookie) ----
 EI_COOKIE = "ei_usuario"
@@ -2436,8 +2566,8 @@ def tela_login():
 
         if modo == "Entrar":
             with st.form("form_login"):
-                login_user = st.text_input("Usuario", key="login_user",
-                                           placeholder="seu.usuario")
+                login_user = st.text_input("Email ou usuario", key="login_user",
+                                           placeholder="voce@escola.com")
                 login_senha = st.text_input("Senha", type="password", key="login_senha",
                                             placeholder="digite sua senha")
                 entrar = st.form_submit_button("Entrar na conta", type="primary",
@@ -2449,32 +2579,104 @@ def tela_login():
                     st.query_params.clear()
                     st.rerun()
                 else:
-                    st.error("Usuario ou senha incorretos.")
+                    st.error("Email, usuario ou senha incorretos.")
         else:
-            with st.form("form_cadastro"):
-                cad_user = st.text_input("Nome de usuario", key="cad_user",
-                                         placeholder="ex.: maria.silva")
-                cad_senha = st.text_input("Crie uma senha", type="password",
-                                          key="cad_senha", placeholder="Minimo 6 caracteres")
-                cad_confirmar = st.text_input("Confirme a senha", type="password",
-                                              key="cad_confirmar", placeholder="Digite novamente")
-                criar = st.form_submit_button("Criar minha conta", type="primary",
-                                              use_container_width=True)
-            if criar:
-                user_c = cad_user.strip()
-                if not user_c:
-                    st.error("Preencha o nome de usuario.")
-                elif len(cad_senha) < 6:
-                    st.error("A senha precisa ter pelo menos 6 caracteres.")
-                elif cad_senha != cad_confirmar:
-                    st.error("As senhas nao conferem.")
-                elif usuario_existe(user_c):
-                    st.error("Ja existe uma conta com esse nome de usuario.")
-                else:
-                    criar_conta("", user_c, cad_senha)
-                    st.session_state["usuario"] = user_c
-                    st.session_state["bem_vindo"] = True
-                    st.query_params.clear()
+            _cad = st.session_state
+            etapa = _cad.get("cad_etapa", "dados")
+            if etapa == "dados":
+                st.caption("Crie sua conta com email e senha. Enviaremos um codigo "
+                           "para confirmar o seu email.")
+                with st.form("form_cadastro"):
+                    cad_email = st.text_input("Email", key="cad_email",
+                                              placeholder="voce@escola.com")
+                    cad_senha = st.text_input("Crie uma senha", type="password",
+                                              key="cad_senha",
+                                              placeholder="Minimo 6 caracteres")
+                    cad_confirmar = st.text_input("Confirme a senha", type="password",
+                                                  key="cad_confirmar",
+                                                  placeholder="Digite novamente")
+                    criar = st.form_submit_button("Enviar codigo de verificacao",
+                                                  type="primary",
+                                                  use_container_width=True)
+                if criar:
+                    email_c = (cad_email or "").strip().lower()
+                    if not email_c:
+                        st.error("Preencha o seu email.")
+                    elif not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email_c):
+                        st.error("Digite um email valido.")
+                    elif len(cad_senha) < 6:
+                        st.error("A senha precisa ter pelo menos 6 caracteres.")
+                    elif cad_senha != cad_confirmar:
+                        st.error("As senhas nao conferem.")
+                    elif email_existe(email_c):
+                        st.error("Ja existe uma conta com esse email.")
+                    else:
+                        ok, msg, codigo_visivel = _enviar_codigo_verificacao(email_c)
+                        if ok:
+                            _cad["cad_pend_email"] = email_c
+                            _cad["cad_pend_senha"] = cad_senha
+                            _cad["cad_etapa"] = "codigo"
+                            _cad["cad_pend_enviou"] = True
+                            _cad["cad_pend_codigo_teste"] = codigo_visivel
+                            st.rerun()
+                        else:
+                            st.error(msg)
+            else:
+                email_c = _cad.get("cad_pend_email", "")
+                if _cad.get("cad_pend_enviou"):
+                    st.success("Enviamos um codigo para o seu email. "
+                               "Confira a caixa de entrada (e o spam).")
+                    _cad["cad_pend_enviou"] = False
+                if _cad.get("cad_pend_codigo_teste"):
+                    st.info(f"**Modo teste (sem SMTP):** seu codigo e "
+                            f"**{_cad['cad_pend_codigo_teste']}**.")
+                    _cad.pop("cad_pend_codigo_teste", None)
+                st.caption(f"Confirme o codigo enviado para <b>{esc(email_c)}</b>.",
+                           unsafe_allow_html=True)
+                with st.form("form_confirmar_email"):
+                    cad_codigo = st.text_input("Codigo de 6 digitos", key="cad_codigo",
+                                               placeholder="000000")
+                    confirmar = st.form_submit_button("Verificar e criar conta",
+                                                      type="primary",
+                                                      use_container_width=True)
+                if confirmar:
+                    if not (cad_codigo or "").strip():
+                        st.error("Digite o codigo recebido.")
+                    else:
+                        valido, msg = _validar_codigo(email_c, cad_codigo)
+                        if valido:
+                            base = re.sub(r"[^a-zA-Z0-9_.-]", "_",
+                                          email_c.split("@")[0].lower())
+                            user_c = base or "usuario"
+                            i = 2
+                            while usuario_existe(user_c):
+                                user_c = f"{base}{i}"
+                                i += 1
+                            criar_conta("", user_c, _cad.get("cad_pend_senha", ""),
+                                        email=email_c, email_verificado=True)
+                            _cad.pop("cad_etapa", None)
+                            _cad.pop("cad_pend_email", None)
+                            _cad.pop("cad_pend_senha", None)
+                            _cad["usuario"] = user_c
+                            _cad["bem_vindo"] = True
+                            st.query_params.clear()
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                if st.button("Reenviar codigo", key="cad_reenviar",
+                             use_container_width=True):
+                    ok, msg, codigo_visivel = _enviar_codigo_verificacao(email_c)
+                    if ok:
+                        st.session_state["cad_pend_enviou"] = True
+                        st.session_state["cad_pend_codigo_teste"] = codigo_visivel
+                    else:
+                        st.error(msg)
+                    st.rerun()
+                if st.button("Voltar e trocar o email", key="cad_voltar",
+                             use_container_width=True):
+                    _cad["cad_etapa"] = "dados"
+                    _cad.pop("cad_pend_email", None)
+                    _cad.pop("cad_pend_senha", None)
                     st.rerun()
 
         st.markdown(
@@ -2495,7 +2697,7 @@ def tela_login():
             _diag_ei_auth = False
             _diag_qp = -1
         st.caption(
-            f"ei-build 20260805a &middot; cookie={'sim' if _diag_cookie else 'nao'} "
+            f"ei-build 20260805b &middot; cookie={'sim' if _diag_cookie else 'nao'} "
             f"&middot; xsrf={'sim' if _diag_xsrf else 'nao'} "
             f"&middot; qp={_diag_qp} &middot; ei_auth={'sim' if _diag_ei_auth else 'nao'}"
         )
