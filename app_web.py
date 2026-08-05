@@ -4172,8 +4172,7 @@ def _avancar_revisao():
         st.session_state["ia_rev_idx"] = min(idx, len(lista) - 1)
 
 
-@st.dialog("Revisar Questão")
-def dialog_revisar_questao():
+def form_revisar_questao(uid="rev"):
     lista = st.session_state.get("ia_revisar") or []
     if not lista:
         st.info("Nenhuma questao para revisar.")
@@ -4205,38 +4204,40 @@ def dialog_revisar_questao():
     if not st.session_state.get("ia_editando"):
         c1, c2, c3 = st.columns(3)
         if c1.button("Importar no catalogo", type="primary", use_container_width=True,
-                     key="rev_importar"):
+                     key=f"{uid}_importar"):
             _importar_questao_revista(q, disc_padrao)
             _avancar_revisao()
-        if c2.button("Editar", use_container_width=True, key="rev_editar"):
+            st.rerun()
+        if c2.button("Editar", use_container_width=True, key=f"{uid}_editar"):
             st.session_state["ia_editando"] = True
             st.rerun()
-        if c3.button("Excluir", use_container_width=True, key="rev_excluir"):
+        if c3.button("Excluir", use_container_width=True, key=f"{uid}_excluir"):
             _avancar_revisao()
+            st.rerun()
     else:
         st.markdown("**Editando questao (lembre-se de salvar):**")
-        e_tema = st.text_input("Tema / descritor:", value=q.get("tema", ""), key="rev_tema")
+        e_tema = st.text_input("Tema / descritor:", value=q.get("tema", ""), key=f"{uid}_tema")
         e_disc = st.text_input("Disciplina:", value=q.get("disciplina") or disc_padrao,
-                               key="rev_disciplina")
+                               key=f"{uid}_disciplina")
         e_dif = st.selectbox("Nivel:", ["Facil", "Medio", "Dificil"],
                              index=(["Facil", "Medio", "Dificil"].index(q.get("dificuldade", "Medio"))
                                     if q.get("dificuldade") in ["Facil", "Medio", "Dificil"] else 1),
-                             key="rev_dificuldade")
+                             key=f"{uid}_dificuldade")
         e_enun = st.text_area("Enunciado / contexto:", value=q.get("enunciado", ""), height=90,
-                              key="rev_enunciado")
+                              key=f"{uid}_enunciado")
         e_perg = st.text_area("Pergunta / comando:", value=q.get("pergunta_direta", ""), height=60,
-                              key="rev_pergunta")
+                              key=f"{uid}_pergunta")
         st.markdown("**Alternativas (em branco = remove; todas em branco = discursiva):**")
         letras_edit = "ABCDEFGH"[: max(len(alt), 4)]
         for letra in letras_edit:
-            st.text_input(f"Alternativa {letra})", value=alt.get(letra, ""), key=f"rev_alt_{letra}")
-        e_gab = st.text_input("Gabarito:", value=str(q.get("gabarito", "")), key="rev_gabarito")
+            st.text_input(f"Alternativa {letra})", value=alt.get(letra, ""), key=f"{uid}_alt_{letra}")
+        e_gab = st.text_input("Gabarito:", value=str(q.get("gabarito", "")), key=f"{uid}_gabarito")
         c1, c2 = st.columns(2)
         if c1.button("Salvar alteracoes", type="primary", use_container_width=True,
-                     key="rev_salvar"):
+                     key=f"{uid}_salvar"):
             alt_nova = {}
             for letra in letras_edit:
-                v = (st.session_state.get(f"rev_alt_{letra}") or "").strip()
+                v = (st.session_state.get(f"{uid}_alt_{letra}") or "").strip()
                 if v:
                     alt_nova[letra] = v
             lista[idx].update({
@@ -4250,7 +4251,7 @@ def dialog_revisar_questao():
             lista[idx]["alternativas"] = alt_nova
             st.session_state["ia_editando"] = False
             st.rerun()
-        if c2.button("Cancelar edicao", use_container_width=True, key="rev_cancelar"):
+        if c2.button("Cancelar edicao", use_container_width=True, key=f"{uid}_cancelar"):
             st.session_state["ia_editando"] = False
             st.rerun()
 
@@ -4385,9 +4386,11 @@ def tela_importar():
             except (ValueError, json.JSONDecodeError) as e:
                 st.error(f"A IA nao retornou um JSON valido. Tente novamente.\n\nDetalhe: {e}")
 
-    # Revisao em janela (dialog): chamada incondicional para permanecer aberta entre acoes
+    # Revisao em painel lateral (popover): aberto enquanto houver questoes
     if st.session_state.get("ia_revisar"):
-        dialog_revisar_questao()
+        with st.popover(f"Revisar Questões ({len(st.session_state.get('ia_revisar') or [])})",
+                        type="primary", key="rev_pop", use_container_width=True):
+            form_revisar_questao(uid="rev")
 
 # =====================================================================
 # 17.1 TELA UNIFICADA: CENTRAL DE QUESTOES
