@@ -3131,6 +3131,109 @@ CAMPOS_PLANO = [
     ("Observacoes", "observacoes"),
 ]
 
+def _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio):
+    estrutura = ('{"metodologia": "...", "objetivos": "...", "procedimentos": "...", '
+                 '"habilidades": "...", "comp_geral": "...", "comp_especifica": "...", '
+                 '"recursos": "...", "avaliacao": "...", "observacoes": "..."}')
+    linhas = [
+        "Voce e um professor experiente do ensino fundamental e medio brasileiro.",
+        "Elabore um plano de aula completo e detalhado com base nas informacoes abaixo.",
+        f"- Tema / conteudo da aula: {tema.strip()}",
+        f"- Disciplina(s): {disciplinas}",
+        f"- Carga horaria: {carga}",
+        f"- Data de inicio: {data_inicio}",
+        "",
+        "Responda APENAS com um objeto JSON valido, sem texto adicional, "
+        "usando exatamente esta estrutura:",
+        estrutura,
+        "",
+        "Regras de preenchimento de cada campo:",
+        "- metodologia: descreva a abordagem didatica e as atividades principais da aula.",
+        "- objetivos: liste objetivos especificos e mensuraveis para a aula.",
+        "- procedimentos: descreva passo a passo como a aula se desenvolve.",
+        "- habilidades: cite habilidades da BNCC relacionadas ao tema (ex: EF08MA08).",
+        "- comp_geral: indique uma competencia geral da BNCC aplicavel ao tema.",
+        "- comp_especifica: indique competencias especificas da BNCC.",
+        "- recursos: liste os materiais e recursos necessarios para a aula.",
+        "- avaliacao: descreva como a aprendizagem sera avaliada.",
+        "- observacoes: acrescente orientacoes complementares para o professor.",
+        "- Escreva tudo em portugues do Brasil, de forma didatica, clara e objetiva.",
+    ]
+    return "\n".join(linhas)
+
+
+def _extrair_objeto_json_ia(texto):
+    t = (texto or "").strip()
+    if t.startswith("```"):
+        linhas = t.splitlines()
+        t = "\n".join(linhas[1:]) if len(linhas) > 1 else ""
+        if t.rstrip().endswith("```"):
+            t = t.rstrip()[:-3].rstrip()
+    ini = t.find("{")
+    fim = t.rfind("}")
+    if ini != -1 and fim != -1 and fim > ini:
+        t = t[ini:fim + 1]
+    return json.loads(t)
+
+
+def _gerar_plano_com_ia(tema, data_inicio, carga, td_selecionadas):
+    chave_salva = (carregar_chave_ia() or "").strip()
+    if not chave_salva:
+        st.error("Configure sua chave de API em Configuracoes > Chave de API para usar a IA.")
+        if st.button("Ir para Configuracoes", key="plano_ia_ir_config"):
+            ir_para("Configuracoes")
+            st.rerun()
+        return
+    if not tema.strip():
+        st.error("Preencha o campo Tema para a IA gerar o plano.")
+        return
+    if not td_selecionadas:
+        st.error("Selecione ao menos uma turma/disciplina para a IA gerar o plano.")
+        return
+    try:
+        datetime.strptime(data_inicio.strip(), "%d/%m/%Y")
+    except ValueError:
+        st.error("Formato de data invalido. Use DD/MM/AAAA.")
+        return
+
+    disciplinas = ", ".join(sorted(set(td.split(" - ")[-1] for td in td_selecionadas)))
+    config = carregar_config()
+    provedor = config.get("provedor_ia", "Google Gemini")
+    modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
+    prompt = _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio)
+    try:
+        with st.spinner("Gerando plano de aula com IA... pode levar alguns segundos."):
+            if provedor == "Google Gemini":
+                texto = chamar_ia_gemini(chave_salva, modelo_interno, prompt)
+            else:
+                texto = chamar_ia_openai(chave_salva, modelo_interno, prompt)
+        dados = _extrair_objeto_json_ia(texto)
+        if not isinstance(dados, dict):
+            raise ValueError("A IA nao retornou um objeto valido.")
+        preenchidos = 0
+        for rotulo, chave in CAMPOS_PLANO:
+            valor = str(dados.get(chave, "") or "").strip()
+            if valor:
+                st.session_state[f"plano_{chave}"] = valor
+                preenchidos += 1
+        if preenchidos == 0:
+            raise ValueError("A IA nao retornou campos validos para o plano.")
+        st.success(
+            f"Plano preenchido pela IA ({preenchidos} campos). "
+            "Revise os valores antes de distribuir.")
+        st.rerun()
+    except urllib.error.HTTPError as e:
+        detalhe = e.read().decode("utf-8", errors="ignore")[:300]
+        msg = f"Erro {e.code} ao chamar o servico de IA. Verifique a chave.\n\n{detalhe}"
+        if e.code == 404 and "model" in detalhe.lower():
+            msg += ("\n\nDica: o modelo pode ter sido descontinuado pelo provedor. "
+                    "Avise o suporte do app para atualizar o modelo interno.")
+        st.error(msg)
+    except (urllib.error.URLError, TimeoutError):
+        st.error("Nao foi possivel conectar ao servico de IA. Verifique sua internet.")
+    except (ValueError, json.JSONDecodeError) as e:
+        st.error(f"A IA nao retornou um JSON valido. Tente novamente.\n\nDetalhe: {e}")
+
 def tela_central_planos(config):
     st.markdown("## Central de Planos")
     grade = carregar_grade()
@@ -3153,7 +3256,13 @@ def tela_central_planos(config):
                 td = f"{item['turma']} - {item.get('disciplina', 'Geral')}"
                 if td not in turmas_disciplinas:
                     turmas_disciplinas.append(td)
-            td_selecionadas = st.multiselect("Turmas / Disciplinas", turmas_disciplinas)
+            c_td, c_ia = st.columns([2.6, 1], vertical_alignment="center")
+            td_selecionadas = c_td.multiselect("Turmas / Disciplinas", turmas_disciplinas)
+            botao_ia = c_ia.button(
+                "✨ Gerar com IA", use_container_width=True, key="plano_ia_gerar",
+                help="Preenche automaticamente todos os campos do plano de aula usando IA")
+            if botao_ia:
+                _gerar_plano_com_ia(tema, data_inicio, carga, td_selecionadas)
 
             aba_m, aba_b, aba_r = st.tabs(["Metodologia & Objetivos", "Estrutura BNCC", "Recursos & Avaliacao"])
             mapa = {"metodologia": 0, "objetivos": 0, "procedimentos": 0,
