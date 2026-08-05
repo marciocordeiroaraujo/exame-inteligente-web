@@ -808,56 +808,81 @@ section[data-testid="stSidebar"] .stCaption {
     padding: 10px 12px 4px 12px; text-transform: uppercase;
     border-top: 1px solid rgba(255,255,255,.08); margin-top: 2px;
 }
-section[data-testid="stSidebar"] .stButton button {
+section[data-testid="stSidebar"] .stButton > button {
     width: 100%; text-align: left; justify-content: flex-start; gap: 10px;
     background: transparent; border: 1px solid transparent; color: rgba(255,255,255,.85) !important;
     border-radius: 9px; padding: .40rem .68rem; font-size: .87rem; font-weight: 600;
     margin-bottom: 2px; transition: all .18s ease; box-shadow: none;
 }
-section[data-testid="stSidebar"] .stButton button:hover {
+section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.12) !important; color: #fff !important;
     transform: translateX(3px); box-shadow: none;
 }
-section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     background: var(--cor-p) !important; color: var(--btn-fg) !important; font-weight: 700;
     border: 1px solid rgba(255,255,255,.28);
     box-shadow: 0 3px 12px rgba(0,0,0,.28);
 }
-section[data-testid="stSidebar"] .stButton button[kind="primary"] * {
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
     color: var(--btn-fg) !important;
 }
-section[data-testid="stSidebar"] .stButton button[kind="primary"]:hover {
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     background: var(--cor-ph) !important; transform: none;
 }
-section[data-testid="stSidebar"] .stButton button[kind="secondary"] * {
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
     color: rgba(255,255,255,.85) !important;
 }
 
 /* ---------------- Botoes ---------------- */
-.stButton button, .stDownloadButton > button, .stFormSubmitButton > button {
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
     border-radius: 10px; font-weight: 600; letter-spacing: .01em;
     transition: all .18s ease; box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-.stButton button:hover, .stDownloadButton > button:hover {
+.stButton > button:hover, .stDownloadButton > button:hover {
     box-shadow: 0 4px 14px rgba(0,0,0,.16); transform: translateY(-1px);
 }
-.stButton button[kind="primary"], .stDownloadButton > button[kind="primary"],
+.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"],
 .stFormSubmitButton > button[kind="primary"] {
     background: linear-gradient(180deg, var(--cor-p) 0%, var(--cor-pd) 100%);
     color: var(--btn-fg); border: 1px solid @@CORP_EDGE@@;
 }
-.stButton button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover,
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover,
 .stFormSubmitButton > button[kind="primary"]:hover {
     background: linear-gradient(180deg, var(--cor-ph) 0%, var(--cor-pd) 100%);
     box-shadow: 0 6px 18px @@CORP_SHADOW@@;
 }
-.stButton button[kind="secondary"] {
+.stButton > button[kind="secondary"] {
+    background: var(--card-bg); color: var(--cor-texto); border: 1px solid var(--borda);
+}
+.stButton > button[kind="secondary"]:hover {background: @@CORS_SOFT@@;}
+.stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
+.stFormSubmitButton > button:focus-visible {outline: 3px solid @@CORP_SOFT@@; outline-offset: 1px;}
+
+/* Botao "Gerar com IA" (Central de Planos): com help, o Streamlit aninha o
+   button dentro de spans (tooltip), entao o seletor ".stButton > button"
+   nao casa. Fix local por key: garante fundo claro/texto escuro legiveis
+   em qualquer tema, sem afetar os demais botoes (ex.: barra lateral). */
+div[class*="st-key-plano_ia_gerar"] button[kind="secondary"] {
     background: var(--card-bg) !important; color: var(--cor-texto) !important;
     border: 1px solid var(--borda) !important;
 }
-.stButton button[kind="secondary"]:hover {background: @@CORS_SOFT@@ !important;}
-.stButton button:focus-visible, .stDownloadButton > button:focus-visible,
-.stFormSubmitButton > button:focus-visible {outline: 3px solid @@CORP_SOFT@@; outline-offset: 1px;}
+div[class*="st-key-plano_ia_gerar"] button[kind="secondary"]:hover {
+    background: @@CORS_SOFT@@ !important; color: var(--cor-texto) !important;
+}
+/* Tooltip do botao "Gerar com IA" (e demais dicas): fundo claro + texto
+   escuro SEMPRE, mesmo com navegador em modo escuro forcado (color-scheme).
+   O wrapper usa data-baseweb="tooltip" e o texto fica em stTooltipContent. */
+[data-baseweb="tooltip"] {
+    background: #ffffff !important; color: #1f1f1f !important;
+    color-scheme: light !important; border: 1px solid #d3d8e0 !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,.15) !important;
+}
+[data-baseweb="tooltip"] [data-testid="stTooltipContent"],
+[data-testid="stTooltipContent"],
+[data-baseweb="tooltip"] * {
+    background-color: transparent !important; color: #1f1f1f !important;
+    -webkit-text-fill-color: #1f1f1f !important;
+}
 
 /* ---------------- Inputs ---------------- */
 .stTextInput input, .stTextArea textarea, .stNumberInput input,
@@ -1202,14 +1227,14 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] [data-baseweb="popover"] li[aria-selected="true"] {
     background: @@CORS_SOFT@@ !important; color: #1f1f1f !important;
 }
-[data-testid="stDialog"] .stButton button[kind="secondary"] {
+[data-testid="stDialog"] .stButton > button[kind="secondary"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
 }
-[data-testid="stDialog"] .stButton button[kind="secondary"]:hover {
+[data-testid="stDialog"] .stButton > button[kind="secondary"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
-[data-testid="stDialog"] .stButton button[kind="primary"] {
+[data-testid="stDialog"] .stButton > button[kind="primary"] {
     color: #ffffff !important;
 }
 /* ---------------- Popovers (janelas flutuantes) SEMPRE claros ----------------
@@ -1253,11 +1278,11 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stPopoverBody"] div[data-baseweb="select"] input {
     color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
 }
-[data-testid="stPopoverBody"] .stButton button[kind="secondary"] {
+[data-testid="stPopoverBody"] .stButton > button[kind="secondary"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
 }
-[data-testid="stPopoverBody"] .stButton button[kind="secondary"]:hover {
+[data-testid="stPopoverBody"] .stButton > button[kind="secondary"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
 [data-testid="stPopoverBody"] [data-baseweb="popover"] [role="listbox"],
