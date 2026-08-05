@@ -1256,7 +1256,7 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
    inclusive no botao que abre o tutorial e nas listas internas.
    color-scheme: light impede o navegador de aplicar preto nativo
    (modo escuro forcado / tema Dark) nas camadas do popover. */
-[data-testid="stPopover"] {background: #ffffff !important; color-scheme: light !important;}
+[data-testid="stPopover"] {background: #f2f4f7 !important; color-scheme: light !important;}
 [data-testid="stPopoverButton"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
@@ -1264,9 +1264,9 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stPopoverButton"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
-[data-baseweb="popover"] {background: #ffffff !important; color-scheme: light !important;}
+[data-baseweb="popover"] {background: #f2f4f7 !important; color-scheme: light !important;}
 [data-testid="stPopoverBody"] {
-    background: #ffffff !important; color: #1f1f1f !important;
+    background: #f2f4f7 !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important; border-radius: 12px;
     color-scheme: light !important;
 }
@@ -1306,11 +1306,11 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
     color: #1f1f1f !important;
 }
 /* Wrappers internos do popover herdavam fundo escuro do tema Dark:
-   o divisor entre o body (branco) e o conteudo e o envoltorio do
+   o divisor entre o body (cinza claro) e o conteudo e o envoltorio do
    textarea (stTextAreaRootElement) continuavam com cor de fundo
-   escura. Forcamos branco nesses containers. */
+   escura. Forcamos cinza claro nesses containers. */
 [data-testid="stPopoverBody"] > div {
-    background: #ffffff !important; color: #1f1f1f !important;
+    background: #f2f4f7 !important; color: #1f1f1f !important;
 }
 [data-testid="stPopoverBody"] [data-testid="stTextAreaRootElement"],
 [data-testid="stPopoverBody"] [data-testid="stTextAreaRootElement"] > div,
