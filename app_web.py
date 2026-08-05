@@ -2827,53 +2827,55 @@ def tela_grade_semanal():
             st.query_params.pop("del", None)
             st.rerun()
 
-    c_cfg, c_add = st.columns([1, 2.4])
-    with c_cfg:
-        with st.container(key="card_grade_cfg"):
-            nova_qtd = st.selectbox("Qtd. de aulas/dia:", [str(i) for i in range(1, 16)],
-                                    index=max_aulas - 1 if 1 <= max_aulas <= 15 else 5)
-            if st.button("Atualizar", use_container_width=True):
-                salvar_config_grade(int(nova_qtd))
-                st.rerun()
+    with st.expander("➕ Adicionar Aulas", expanded=False):
+        c_cfg, c_add = st.columns([1, 2.4])
+        with c_cfg:
+            with st.container(key="card_grade_cfg"):
+                nova_qtd = st.selectbox("Qtd. de aulas/dia:", [str(i) for i in range(1, 16)],
+                                        index=max_aulas - 1 if 1 <= max_aulas <= 15 else 5)
+                if st.button("Atualizar", use_container_width=True):
+                    salvar_config_grade(int(nova_qtd))
+                    st.rerun()
 
-    with c_add:
-        with st.container(key="card_grade_add"):
-            st.markdown("**Adicionar aula a grade**")
-            l1, l2 = st.columns([1, 1])
-            nova_turma = l1.text_input("Turma", placeholder="Ex: 7o A", key="grade_turma")
-            opcoes_disc = DISCIPLINAS_COMUNS + ["Outra disciplina..."]
-            disc_sel = l2.selectbox("Disciplina", opcoes_disc,
-                                    index=0, key="grade_disc_sel")
-            nova_disc = ""
-            if disc_sel == "Outra disciplina...":
-                nova_disc = l2.text_input("Digite a disciplina:", key="grade_disc_outra")
-            else:
-                nova_disc = disc_sel
-            dia = st.radio("Dia da semana", DIAS_UTEIS, horizontal=True)
-            aulas_sel = st.multiselect(
-                "Selecione as aulas", [f"{i}a Aula" for i in range(1, max_aulas + 1)],
-                key="grade_aulas")
-            if st.button("+ Adicionar", type="primary", use_container_width=True):
-                if not nova_turma.strip() or not nova_disc.strip():
-                    st.error("Preencha a turma e a disciplina.")
-                elif not aulas_sel:
-                    st.error("Marque pelo menos um horario.")
+        with c_add:
+            with st.container(key="card_grade_add"):
+                st.markdown("**Adicionar aula a grade**")
+                l1, l2 = st.columns([1, 1])
+                nova_turma = l1.text_input("Turma", placeholder="Ex: 7o A", key="grade_turma")
+                opcoes_disc = DISCIPLINAS_COMUNS + ["Outra disciplina..."]
+                disc_sel = l2.selectbox("Disciplina", opcoes_disc,
+                                        index=0, key="grade_disc_sel")
+                nova_disc = ""
+                if disc_sel == "Outra disciplina...":
+                    nova_disc = l2.text_input("Digite a disciplina:", key="grade_disc_outra")
                 else:
-                    conflitos = [f"{a} (ocupada: {i['turma']})" for a in aulas_sel
-                                 for i in grade if i["dia"] == dia and i["aula"] == a]
-                    if conflitos:
-                        st.warning("Conflito de horario:\n" + "\n".join(conflitos))
+                    nova_disc = disc_sel
+                dia = st.radio("Dia da semana", DIAS_UTEIS, horizontal=True)
+                aulas_sel = st.multiselect(
+                    "Selecione as aulas", [f"{i}a Aula" for i in range(1, max_aulas + 1)],
+                    key="grade_aulas")
+                if st.button("+ Adicionar", type="primary", use_container_width=True):
+                    if not nova_turma.strip() or not nova_disc.strip():
+                        st.error("Preencha a turma e a disciplina.")
+                    elif not aulas_sel:
+                        st.error("Marque pelo menos um horario.")
                     else:
-                        novo_id = max([i.get("id", 0) for i in grade], default=0) + 1
-                        for a in aulas_sel:
-                            grade.append({"id": novo_id, "turma": nova_turma.strip(),
-                                          "disciplina": nova_disc.strip(), "dia": dia, "aula": a})
-                            novo_id += 1
-                        salvar_grade(grade)
-                        st.rerun()
+                        conflitos = [f"{a} (ocupada: {i['turma']})" for a in aulas_sel
+                                     for i in grade if i["dia"] == dia and i["aula"] == a]
+                        if conflitos:
+                            st.warning("Conflito de horario:\n" + "\n".join(conflitos))
+                        else:
+                            novo_id = max([i.get("id", 0) for i in grade], default=0) + 1
+                            for a in aulas_sel:
+                                grade.append({"id": novo_id, "turma": nova_turma.strip(),
+                                              "disciplina": nova_disc.strip(), "dia": dia, "aula": a})
+                                novo_id += 1
+                            salvar_grade(grade)
+                            st.rerun()
 
-    if not grade:
-        st.info("Nenhum horario cadastrado. Comece adicionando turmas acima.")
+    dias_preenchidos = [d for d in DIAS_UTEIS if any(x["dia"] == d for x in grade)]
+    if not dias_preenchidos:
+        st.info("Nenhum horario cadastrado. Clique em 'Adicionar Aulas' para montar sua grade.")
         return
 
     def ordem_aula(aula):
@@ -2883,8 +2885,8 @@ def tela_grade_semanal():
             return 0
 
     with st.container(key="grade_dias"):
-        colunas = st.columns(5)
-        for i, dia in enumerate(DIAS_UTEIS):
+        colunas = st.columns(len(dias_preenchidos))
+        for i, dia in enumerate(dias_preenchidos):
             with colunas[i]:
                 st.markdown(f"#### {dia.split('-')[0]}")
                 itens = sorted([x for x in grade if x["dia"] == dia], key=lambda x: ordem_aula(x["aula"]))
