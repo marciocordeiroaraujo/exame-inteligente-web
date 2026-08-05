@@ -1078,13 +1078,9 @@ div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
     margin: 0 !important;
 }
 
-/* ---------------- Mini grade (Grade Semanal no Dashboard) ---------------- */
-.gmini {display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 6px;}
-.gmini-dia {background: @@MINI_DIA@@; border: 1px solid var(--borda); border-radius: 10px; padding: 6px; min-width: 0;}
-.gmini-nome {font-size: .72rem; font-weight: 700; color: @@CORS@@; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em;}
-.gmini-aula {background: @@MINI_AULA@@; border-radius: 6px; padding: 4px 8px; margin-bottom: 4px;
-    font-size: .72rem; color: @@MINI_TXT@@; border: 1px solid transparent;}
-.gmini-aula:hover {border-color: @@CORS@@;}
+/* ---------------- Aulas do Dia (Dashboard) ---------------- */
+.adias {display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px;}
+.adias-cell {margin-bottom: 0;}
 
 /* ---------------- Grade Semanal / Agenda ---------------- */
 .gcell, .dash-item {
@@ -1397,9 +1393,6 @@ def injetar_css(config):
     css = css.replace("@@COR_BORDA@@", cor_borda)
     css = css.replace("@@TAGS@@", tag_txt)
     css = css.replace("@@SCROLL@@", cor_rgba(cor_p, 0.45))
-    css = css.replace("@@MINI_DIA@@", cor_rgba(cor_s, 0.06))
-    css = css.replace("@@MINI_AULA@@", cor_rgba(cor_s, 0.14))
-    css = css.replace("@@MINI_TXT@@", tag_txt)
     css = css.replace("@@FUNDO@@", cor_fundo)
     css = css.replace("@@BTN@@", txt_btn)
     css = css.replace("@@CARDBG@@", card_bg)
@@ -2465,23 +2458,31 @@ def parse_cal(cal):
         mes, ano = hoje.month, hoje.year
     return mes, ano
 
-def html_grade_mini(grade_horaria):
-    if not grade_horaria:
-        return '<div class="card-sub">Grade vazia. Cadastre aulas na Grade Semanal.</div>'
-    ordem = {d: i for i, d in enumerate(DIAS_UTEIS + ["Sabado", "Domingo"])}
-    dias = sorted(list(set([i["dia"] for i in grade_horaria])), key=lambda x: ordem.get(x, 99))
-    partes = ['<div class="gmini">']
-    for dia in dias:
-        aulas = [i for i in grade_horaria if i["dia"] == dia]
-        aulas.sort(key=lambda x: x.get("aula", ""))
-        cards = "".join(
-            f'<div class="gmini-aula">{a.get("aula","")}-{a.get("turma","")}</div>'
-            for a in aulas)
-        partes.append(
-            f'<div class="gmini-dia">'
-            f'<div class="gmini-nome">{dia.split("-")[0]}</div>{cards}</div>')
-    partes.append("</div>")
-    return "".join(partes)
+def _ordem_aula(aula):
+    try:
+        return int(str(aula).split("a")[0])
+    except Exception:
+        return 0
+
+
+def html_aulas_dia(grade_horaria, dia_str):
+    try:
+        nome_dia = DIAS_COMPLETOS[datetime.strptime(dia_str, "%d/%m/%Y").weekday()]
+    except Exception:
+        nome_dia = ""
+    aulas = sorted([i for i in grade_horaria if i["dia"] == nome_dia],
+                   key=lambda x: _ordem_aula(x.get("aula")))
+    if not aulas:
+        return (f'<div class="card-sub">Sem aulas em {esc(nome_dia or dia_str)}.</div>'
+                if nome_dia else
+                '<div class="card-sub">Grade vazia. Cadastre aulas na Grade Semanal.</div>')
+    cards = "".join(
+        f'<div class="gcell adias-cell">'
+        f'<div class="gcell-aula">{esc(a.get("aula",""))}</div>'
+        f'<div class="gcell-turma">{esc(a.get("turma",""))}</div>'
+        f'<div class="gcell-disc">{esc(a.get("disciplina","Geral"))}</div></div>'
+        for a in aulas)
+    return f'<div class="adias">{cards}</div>'
 
 # =====================================================================
 # 8. DIALOGOS REUTILIZAVEIS
@@ -2728,8 +2729,10 @@ def fragmento_dashboard():
                 dia_selecionada = novo_dia
 
         with st.container(key="card_dash_grade"):
-            st.markdown('<div class="card-titulo">Grade Semanal</div>', unsafe_allow_html=True)
-            st.markdown(html_grade_mini(grade), unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="card-titulo">Aulas do Dia: {dia_selecionada}</div>',
+                unsafe_allow_html=True)
+            st.markdown(html_aulas_dia(grade, dia_selecionada), unsafe_allow_html=True)
 
         with st.container(key="card_dash_mural"):
             topo = st.columns([3, 1])
