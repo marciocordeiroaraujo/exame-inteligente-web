@@ -903,6 +903,17 @@ div[data-baseweb="select"] input,
 div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within {
     border-color: @@CORS@@ !important; box-shadow: 0 0 0 3px @@CORP_SOFT@@ !important;
 }
+/* Campos do plano de aula (Central de Planos): comecam com uma linha e
+   crescem conforme o texto (field-sizing: content, Chrome/Edge 123+,
+   Firefox 130+). Navegadores antigos ficam com altura fixa + scroll. */
+div[class*="st-key-plano_"] textarea {
+    field-sizing: content;
+    height: auto !important;
+    resize: none !important;
+    min-height: 44px !important;
+    max-height: 300px !important;
+    overflow-y: auto;
+}
 /* dropdown / menu */
 [data-baseweb="popover"] [role="listbox"], [data-baseweb="menu"], [data-baseweb="popover"] ul {
     background: var(--card-bg) !important; color: var(--cor-texto) !important;
@@ -3328,7 +3339,7 @@ def tela_central_planos(config):
             valores_extras = {}
             for rotulo, chave in CAMPOS_PLANO:
                 with (aba_m if mapa[chave] == 0 else aba_b if mapa[chave] == 1 else aba_r):
-                    valores_extras[chave] = st.text_area(rotulo, key=f"plano_{chave}")
+                    valores_extras[chave] = st.text_area(rotulo, key=f"plano_{chave}", height=44)
 
             if st.button("Distribuir Plano Automaticamente", type="primary",
                          use_container_width=True):
