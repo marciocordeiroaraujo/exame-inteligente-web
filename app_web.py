@@ -808,54 +808,55 @@ section[data-testid="stSidebar"] .stCaption {
     padding: 10px 12px 4px 12px; text-transform: uppercase;
     border-top: 1px solid rgba(255,255,255,.08); margin-top: 2px;
 }
-section[data-testid="stSidebar"] .stButton > button {
+section[data-testid="stSidebar"] .stButton button {
     width: 100%; text-align: left; justify-content: flex-start; gap: 10px;
     background: transparent; border: 1px solid transparent; color: rgba(255,255,255,.85) !important;
     border-radius: 9px; padding: .40rem .68rem; font-size: .87rem; font-weight: 600;
     margin-bottom: 2px; transition: all .18s ease; box-shadow: none;
 }
-section[data-testid="stSidebar"] .stButton > button:hover {
+section[data-testid="stSidebar"] .stButton button:hover {
     background: rgba(255,255,255,0.12) !important; color: #fff !important;
     transform: translateX(3px); box-shadow: none;
 }
-section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
     background: var(--cor-p) !important; color: var(--btn-fg) !important; font-weight: 700;
     border: 1px solid rgba(255,255,255,.28);
     box-shadow: 0 3px 12px rgba(0,0,0,.28);
 }
-section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
+section[data-testid="stSidebar"] .stButton button[kind="primary"] * {
     color: var(--btn-fg) !important;
 }
-section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+section[data-testid="stSidebar"] .stButton button[kind="primary"]:hover {
     background: var(--cor-ph) !important; transform: none;
 }
-section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+section[data-testid="stSidebar"] .stButton button[kind="secondary"] * {
     color: rgba(255,255,255,.85) !important;
 }
 
 /* ---------------- Botoes ---------------- */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
+.stButton button, .stDownloadButton > button, .stFormSubmitButton > button {
     border-radius: 10px; font-weight: 600; letter-spacing: .01em;
     transition: all .18s ease; box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-.stButton > button:hover, .stDownloadButton > button:hover {
+.stButton button:hover, .stDownloadButton > button:hover {
     box-shadow: 0 4px 14px rgba(0,0,0,.16); transform: translateY(-1px);
 }
-.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"],
+.stButton button[kind="primary"], .stDownloadButton > button[kind="primary"],
 .stFormSubmitButton > button[kind="primary"] {
     background: linear-gradient(180deg, var(--cor-p) 0%, var(--cor-pd) 100%);
     color: var(--btn-fg); border: 1px solid @@CORP_EDGE@@;
 }
-.stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover,
+.stButton button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover,
 .stFormSubmitButton > button[kind="primary"]:hover {
     background: linear-gradient(180deg, var(--cor-ph) 0%, var(--cor-pd) 100%);
     box-shadow: 0 6px 18px @@CORP_SHADOW@@;
 }
-.stButton > button[kind="secondary"] {
-    background: var(--card-bg); color: var(--cor-texto); border: 1px solid var(--borda);
+.stButton button[kind="secondary"] {
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    border: 1px solid var(--borda) !important;
 }
-.stButton > button[kind="secondary"]:hover {background: @@CORS_SOFT@@;}
-.stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
+.stButton button[kind="secondary"]:hover {background: @@CORS_SOFT@@ !important;}
+.stButton button:focus-visible, .stDownloadButton > button:focus-visible,
 .stFormSubmitButton > button:focus-visible {outline: 3px solid @@CORP_SOFT@@; outline-offset: 1px;}
 
 /* ---------------- Inputs ---------------- */
@@ -1201,14 +1202,14 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stDialog"] [data-baseweb="popover"] li[aria-selected="true"] {
     background: @@CORS_SOFT@@ !important; color: #1f1f1f !important;
 }
-[data-testid="stDialog"] .stButton > button[kind="secondary"] {
+[data-testid="stDialog"] .stButton button[kind="secondary"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
 }
-[data-testid="stDialog"] .stButton > button[kind="secondary"]:hover {
+[data-testid="stDialog"] .stButton button[kind="secondary"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
-[data-testid="stDialog"] .stButton > button[kind="primary"] {
+[data-testid="stDialog"] .stButton button[kind="primary"] {
     color: #ffffff !important;
 }
 /* ---------------- Popovers (janelas flutuantes) SEMPRE claros ----------------
@@ -1252,11 +1253,11 @@ div[data-testid="stMetricValue"] {color: @@CORS@@ !important; font-size: 1.7rem 
 [data-testid="stPopoverBody"] div[data-baseweb="select"] input {
     color: #1f1f1f !important; -webkit-text-fill-color: #1f1f1f !important;
 }
-[data-testid="stPopoverBody"] .stButton > button[kind="secondary"] {
+[data-testid="stPopoverBody"] .stButton button[kind="secondary"] {
     background: #ffffff !important; color: #1f1f1f !important;
     border: 1px solid #d3d8e0 !important;
 }
-[data-testid="stPopoverBody"] .stButton > button[kind="secondary"]:hover {
+[data-testid="stPopoverBody"] .stButton button[kind="secondary"]:hover {
     background: #eef2f7 !important; color: #1f1f1f !important;
 }
 [data-testid="stPopoverBody"] [data-baseweb="popover"] [role="listbox"],
@@ -3131,10 +3132,10 @@ CAMPOS_PLANO = [
     ("Observacoes", "observacoes"),
 ]
 
-def _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio):
+def _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio, campos_existentes=None):
     estrutura = ('{"metodologia": "...", "objetivos": "...", "procedimentos": "...", '
                  '"habilidades": "...", "comp_geral": "...", "comp_especifica": "...", '
-                 '"recursos": "...", "avaliacao": "...", "observacoes": "..."}')
+                 '"recursos": "...", "avaliacao": "..."}')
     linhas = [
         "Voce e um professor experiente do ensino fundamental e medio brasileiro.",
         "Elabore um plano de aula completo e detalhado com base nas informacoes abaixo.",
@@ -3142,10 +3143,26 @@ def _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio):
         f"- Disciplina(s): {disciplinas}",
         f"- Carga horaria: {carga}",
         f"- Data de inicio: {data_inicio}",
+    ]
+    campos_existentes = {k: str(v or "").strip()
+                         for k, v in (campos_existentes or {}).items() if str(v or "").strip()}
+    if campos_existentes:
+        linhas.append("")
+        linhas.append("CONTEXTO - campos ja preenchidos pelo professor (use como base:")
+        for chave, valor in campos_existentes.items():
+            linhas.append(f"- {chave}: {valor}")
+        linhas.append("Mantenha a coerencia com esses textos, mas NAO os altere: "
+                      "preencha somente os campos que ainda estao vazios.")
+        linhas.append("ATENCAO: os campos ja preenchidos acima devem ficar intactos na "
+                      "sua resposta (repita o mesmo texto deles no JSON, sem mudancas).")
+    linhas.extend([
         "",
         "Responda APENAS com um objeto JSON valido, sem texto adicional, "
         "usando exatamente esta estrutura:",
         estrutura,
+        "",
+        "IMPORTANTE: NAO inclua nem preencha o campo \"observacoes\" na resposta. "
+        "Ele e reservado para anotacoes manuais do professor.",
         "",
         "Regras de preenchimento de cada campo:",
         "- metodologia: descreva a abordagem didatica e as atividades principais da aula.",
@@ -3156,9 +3173,8 @@ def _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio):
         "- comp_especifica: indique competencias especificas da BNCC.",
         "- recursos: liste os materiais e recursos necessarios para a aula.",
         "- avaliacao: descreva como a aprendizagem sera avaliada.",
-        "- observacoes: acrescente orientacoes complementares para o professor.",
         "- Escreva tudo em portugues do Brasil, de forma didatica, clara e objetiva.",
-    ]
+    ])
     return "\n".join(linhas)
 
 
@@ -3197,10 +3213,15 @@ def _gerar_plano_com_ia(tema, data_inicio, carga, td_selecionadas):
         return
 
     disciplinas = ", ".join(sorted(set(td.split(" - ")[-1] for td in td_selecionadas)))
+    campos_existentes = {}
+    for rotulo, chave in CAMPOS_PLANO:
+        valor = str(st.session_state.get(f"plano_{chave}", "") or "").strip()
+        if valor:
+            campos_existentes[chave] = valor
     config = carregar_config()
     provedor = config.get("provedor_ia", "Google Gemini")
     modelo_interno = MODELO_GEMINI if provedor == "Google Gemini" else MODELO_OPENAI
-    prompt = _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio)
+    prompt = _montar_prompt_plano_ia(tema, disciplinas, carga, data_inicio, campos_existentes)
     try:
         with st.spinner("Gerando plano de aula com IA... pode levar alguns segundos."):
             if provedor == "Google Gemini":
@@ -3211,11 +3232,22 @@ def _gerar_plano_com_ia(tema, data_inicio, carga, td_selecionadas):
         if not isinstance(dados, dict):
             raise ValueError("A IA nao retornou um objeto valido.")
         preenchidos = 0
+        vazios = 0
         for rotulo, chave in CAMPOS_PLANO:
+            if chave == "observacoes":
+                continue
+            ja_preenchido = str(st.session_state.get(f"plano_{chave}", "") or "").strip()
+            if ja_preenchido:
+                continue
+            vazios += 1
             valor = str(dados.get(chave, "") or "").strip()
             if valor:
                 st.session_state[f"plano_{chave}"] = valor
                 preenchidos += 1
+        if vazios == 0:
+            st.info("Todos os campos do plano ja estavam preenchidos. "
+                    "A IA usou esses textos como base e nenhum campo ficou vazio.")
+            return
         if preenchidos == 0:
             raise ValueError("A IA nao retornou campos validos para o plano.")
         st.success(
