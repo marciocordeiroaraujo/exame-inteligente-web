@@ -212,7 +212,9 @@ def _conectar_banco():
     url = _obter_banco_url()
     if "?" in url:
         url = url.split("?", 1)[0]
-    conn = psycopg2.connect(url, sslmode="require")
+    conn = psycopg2.connect(url, sslmode="require", connect_timeout=8,
+                            keepalives=1, keepalives_idle=20, keepalives_interval=10,
+                            keepalives_count=3)
     conn.autocommit = True
     return conn
 
