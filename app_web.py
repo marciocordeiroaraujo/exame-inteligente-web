@@ -1295,22 +1295,22 @@ div[class*="st-key-gc_"] button {
     min-height: 30px !important; padding: 0 !important;
     border: 1px solid rgba(0,0,0,.15) !important; border-radius: 6px !important;
 }
-div[class*="st-key-gc_"][class$="_Azul"] button {background: #dbeafe; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Verde"] button {background: #dcfce7; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Amarelo"] button {background: #fef9c3; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Laranja"] button {background: #ffedd5; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Rosa"] button {background: #fce7f3; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Lilas"] button {background: #ede9fe; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Ciano"] button {background: #cffafe; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Cinza"] button {background: #f1f5f9; color: #1f2937;}
-div[class*="st-key-gc_"][class$="_Azul"] button:hover {box-shadow: 0 0 0 2px rgba(37,99,235,.6);}
-div[class*="st-key-gc_"][class$="_Verde"] button:hover {box-shadow: 0 0 0 2px rgba(22,163,74,.6);}
-div[class*="st-key-gc_"][class$="_Amarelo"] button:hover {box-shadow: 0 0 0 2px rgba(202,138,4,.6);}
-div[class*="st-key-gc_"][class$="_Laranja"] button:hover {box-shadow: 0 0 0 2px rgba(234,88,12,.6);}
-div[class*="st-key-gc_"][class$="_Rosa"] button:hover {box-shadow: 0 0 0 2px rgba(219,39,119,.6);}
-div[class*="st-key-gc_"][class$="_Lilas"] button:hover {box-shadow: 0 0 0 2px rgba(124,58,237,.6);}
-div[class*="st-key-gc_"][class$="_Ciano"] button:hover {box-shadow: 0 0 0 2px rgba(6,182,212,.6);}
-div[class*="st-key-gc_"][class$="_Cinza"] button:hover {box-shadow: 0 0 0 2px rgba(100,116,139,.6);}
+div[class*="st-key-gc_"][class*="_Azul"] button {background: #dbeafe; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Verde"] button {background: #dcfce7; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Amarelo"] button {background: #fef9c3; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Laranja"] button {background: #ffedd5; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Rosa"] button {background: #fce7f3; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Lilas"] button {background: #ede9fe; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Ciano"] button {background: #cffafe; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Cinza"] button {background: #f1f5f9; color: #1f2937;}
+div[class*="st-key-gc_"][class*="_Azul"] button:hover {box-shadow: 0 0 0 2px rgba(37,99,235,.6);}
+div[class*="st-key-gc_"][class*="_Verde"] button:hover {box-shadow: 0 0 0 2px rgba(22,163,74,.6);}
+div[class*="st-key-gc_"][class*="_Amarelo"] button:hover {box-shadow: 0 0 0 2px rgba(202,138,4,.6);}
+div[class*="st-key-gc_"][class*="_Laranja"] button:hover {box-shadow: 0 0 0 2px rgba(234,88,12,.6);}
+div[class*="st-key-gc_"][class*="_Rosa"] button:hover {box-shadow: 0 0 0 2px rgba(219,39,119,.6);}
+div[class*="st-key-gc_"][class*="_Lilas"] button:hover {box-shadow: 0 0 0 2px rgba(124,58,237,.6);}
+div[class*="st-key-gc_"][class*="_Ciano"] button:hover {box-shadow: 0 0 0 2px rgba(6,182,212,.6);}
+div[class*="st-key-gc_"][class*="_Cinza"] button:hover {box-shadow: 0 0 0 2px rgba(100,116,139,.6);}
 [data-testid="stPopoverBody"] {min-width: 0 !important; padding: 10px !important;}
 .dash-item-titulo {font-weight: 700; font-size: .85rem; color: var(--cor-texto);}
 .dash-item-sub {font-size: .8rem; color: var(--cor-cinza);}
