@@ -1262,26 +1262,39 @@ div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
 .gcell-aula {font-size: .72rem; font-weight: 700; color: @@CORS@@;}
 .gcell-turma {font-weight: 700; font-size: .9rem; color: var(--cor-texto);}
 .gcell-disc {font-size: .75rem; color: var(--cor-cinza);}
-.gcell-del {
-    position: absolute; top: 3px; right: 5px; z-index: 5;
-    display: none; color: #e74c3c !important; font-weight: 800; font-size: .85rem;
-    line-height: 1; text-decoration: none !important; padding: 2px 5px; border-radius: 6px;
-    background: rgba(255,255,255,0.85);
-}
-.gcell:hover .gcell-del {display: block;}
-.gcell-del:hover {color: #fff !important; background: #e74c3c !important;}
-.gcell-paint {
-    position: absolute; bottom: 3px; right: 5px; z-index: 5;
-    display: none; color: #4f46e5 !important; font-weight: 800; font-size: .85rem;
-    line-height: 1; text-decoration: none !important; padding: 2px 5px; border-radius: 6px;
-    background: rgba(255,255,255,0.85);
-}
-.gcell:hover .gcell-paint {display: block;}
-.gcell-paint:hover {color: #fff !important; background: #4f46e5 !important;}
+.gcell-del, .gcell-paint {display: none;}
 .gcell-colorido { color: #1f2937 !important; }
 .gcell-colorido .gcell-aula { color: #1f2937 !important; }
 .gcell-colorido .gcell-turma { color: #1f2937 !important; }
 .gcell-colorido .gcell-disc { color: #374151 !important; }
+/* Grade: botoes nativos (excluir sup dir / paleta inf dir) sobre o card */
+div[class*="st-key-cell_"] {position: relative !important;}
+div[class*="st-key-cell_"] > div[class*="st-key-del_"],
+div[class*="st-key-cell_"] > div[class*="st-key-pal_"] {
+    display: none; position: absolute; z-index: 6; width: auto !important;
+}
+div[class*="st-key-cell_"]:hover > div[class*="st-key-del_"] {display: block; top: 3px; right: 5px;}
+div[class*="st-key-cell_"]:hover > div[class*="st-key-pal_"] {display: block; bottom: 3px; right: 5px;}
+div[class*="st-key-cell_"] > div[class*="st-key-del_"] button,
+div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button {
+    min-width: 0 !important; min-height: 22px !important; height: 22px !important;
+    padding: 0 6px !important; line-height: 1; font-size: .8rem; font-weight: 700;
+    border: none !important; border-radius: 6px; background: rgba(255,255,255,0.85);
+}
+div[class*="st-key-cell_"] > div[class*="st-key-del_"] button {color: #e74c3c !important;}
+div[class*="st-key-cell_"] > div[class*="st-key-del_"] button:hover {background: #e74c3c; color: #fff !important;}
+div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button {color: #4f46e5 !important;}
+div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button:hover {background: #4f46e5; color: #fff !important;}
+/* Paleta de cores dentro do popover */
+div[class*="st-key-gc_"] button {border: 1px solid rgba(0,0,0,.10) !important; font-weight: 600 !important;}
+div[class*="st-key-gc_"][class$="_Azul"] button {background: #dbeafe; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Verde"] button {background: #dcfce7; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Amarelo"] button {background: #fef9c3; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Laranja"] button {background: #ffedd5; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Rosa"] button {background: #fce7f3; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Lilas"] button {background: #ede9fe; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Ciano"] button {background: #cffafe; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Cinza"] button {background: #f1f5f9; color: #1f2937;}
 .dash-item-titulo {font-weight: 700; font-size: .85rem; color: var(--cor-texto);}
 .dash-item-sub {font-size: .8rem; color: var(--cor-cinza);}
 .pend-item {
@@ -3115,42 +3128,6 @@ def tela_grade_semanal():
     grade = carregar_grade()
     max_aulas = carregar_config_grade()
 
-    del_id = val_param("del")
-    if del_id:
-        try:
-            del_id = int(del_id)
-        except ValueError:
-            del_id = None
-        if del_id is not None and any(g.get("id") == del_id for g in grade):
-            grade = [g for g in grade if g.get("id") != del_id]
-            salvar_grade(grade)
-            st.query_params.pop("del", None)
-            st.rerun()
-
-    cor_id = val_param("cor")
-    if cor_id:
-        try:
-            cor_id = int(cor_id)
-        except ValueError:
-            cor_id = None
-        if cor_id is not None:
-            for item in grade:
-                if item.get("id") == cor_id:
-                    nomes = [n for n, _ in CORES_AULA]
-                    vals = [c for _, c in CORES_AULA]
-                    cor_atual = item.get("cor", "")
-                    if cor_atual in vals:
-                        idx = vals.index(cor_atual)
-                    elif cor_atual in nomes:
-                        idx = nomes.index(cor_atual)
-                    else:
-                        idx = -1
-                    prox_nome = nomes[(idx + 1) % len(CORES_AULA)]
-                    item["cor"] = prox_nome
-                    salvar_grade(grade)
-                    st.query_params.pop("cor", None)
-                    st.rerun()
-
     with st.expander("➕ Adicionar Aulas", expanded=False):
         c_cfg, c_add = st.columns([1, 2.4])
         with c_cfg:
@@ -3219,16 +3196,26 @@ def tela_grade_semanal():
                     cor_hex = dict(CORES_AULA).get(cor_val, cor_val if cor_val.startswith("#") else "")
                     cor_style = f' style="background:{cor_hex}"' if cor_hex else ""
                     cor_cls = " gcell-colorido" if cor_hex else ""
-                    st.markdown(
-                        f'<div class="gcell{cor_cls}"{cor_style}>'
-                        f'<a class="gcell-del" target="_self" href="{link_para("Grade Semanal")}&del={item["id"]}" '
-                        f'title="Remover este horario">&#10005;</a>'
-                        f'<a class="gcell-paint" target="_self" href="{link_para("Grade Semanal")}&cor={item["id"]}" '
-                        f'title="Trocar a cor">&#127912;</a>'
-                        f'<div class="gcell-aula">{item["aula"]}</div>'
-                        f'<div class="gcell-turma">{item["turma"]}</div>'
-                        f'<div class="gcell-disc">{item.get("disciplina","Geral")}</div></div>',
-                        unsafe_allow_html=True)
+                    with st.container(key=f"cell_{item['id']}"):
+                        st.markdown(
+                            f'<div class="gcell{cor_cls}"{cor_style}>'
+                            f'<div class="gcell-aula">{item["aula"]}</div>'
+                            f'<div class="gcell-turma">{item["turma"]}</div>'
+                            f'<div class="gcell-disc">{item.get("disciplina","Geral")}</div></div>',
+                            unsafe_allow_html=True)
+                        if st.button("✕", key=f"del_{item['id']}", help="Remover este horario"):
+                            grade = [g for g in grade if g.get("id") != item["id"]]
+                            salvar_grade(grade)
+                            st.rerun()
+                        with st.popover("🎨", key=f"pal_{item['id']}", help="Trocar a cor"):
+                            for nome, hex_cor in CORES_AULA:
+                                if st.button(nome, key=f"gc_{item['id']}_{nome}",
+                                             use_container_width=True):
+                                    for g in grade:
+                                        if g.get("id") == item["id"]:
+                                            g["cor"] = nome
+                                    salvar_grade(grade)
+                                    st.rerun()
 
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
