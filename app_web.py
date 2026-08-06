@@ -1263,13 +1263,25 @@ div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
 .gcell-turma {font-weight: 700; font-size: .9rem; color: var(--cor-texto);}
 .gcell-disc {font-size: .75rem; color: var(--cor-cinza);}
 .gcell-del {
-    position: absolute; top: 3px; left: 5px; z-index: 5;
+    position: absolute; top: 3px; right: 5px; z-index: 5;
     display: none; color: #e74c3c !important; font-weight: 800; font-size: .85rem;
     line-height: 1; text-decoration: none !important; padding: 2px 5px; border-radius: 6px;
     background: rgba(255,255,255,0.85);
 }
 .gcell:hover .gcell-del {display: block;}
 .gcell-del:hover {color: #fff !important; background: #e74c3c !important;}
+.gcell-paint {
+    position: absolute; bottom: 3px; right: 5px; z-index: 5;
+    display: none; color: #4f46e5 !important; font-weight: 800; font-size: .85rem;
+    line-height: 1; text-decoration: none !important; padding: 2px 5px; border-radius: 6px;
+    background: rgba(255,255,255,0.85);
+}
+.gcell:hover .gcell-paint {display: block;}
+.gcell-paint:hover {color: #fff !important; background: #4f46e5 !important;}
+.gcell-colorido { color: #1f2937 !important; }
+.gcell-colorido .gcell-aula { color: #1f2937 !important; }
+.gcell-colorido .gcell-turma { color: #1f2937 !important; }
+.gcell-colorido .gcell-disc { color: #374151 !important; }
 .dash-item-titulo {font-weight: 700; font-size: .85rem; color: var(--cor-texto);}
 .dash-item-sub {font-size: .8rem; color: var(--cor-cinza);}
 .pend-item {
@@ -2745,12 +2757,16 @@ def html_aulas_dia(grade_horaria, dia_str):
         return (f'<div class="card-sub">Sem aulas em {esc(nome_dia or dia_str)}.</div>'
                 if nome_dia else
                 '<div class="card-sub">Grade vazia. Cadastre aulas na Grade Semanal.</div>')
-    cards = "".join(
-        f'<div class="gcell adias-cell">'
-        f'<div class="gcell-aula">{esc(a.get("aula",""))}</div>'
-        f'<div class="gcell-turma">{esc(a.get("turma",""))}</div>'
-        f'<div class="gcell-disc">{esc(a.get("disciplina","Geral"))}</div></div>'
-        for a in aulas)
+    cards = ""
+    for a in aulas:
+        cor_val = a.get("cor") or ""
+        cor_hex = dict(CORES_AULA).get(cor_val, cor_val if cor_val.startswith("#") else "")
+        cor_cls = " gcell-colorido" if cor_hex else ""
+        cor_style = f' style="background:{esc(cor_hex)}"' if cor_hex else ""
+        cards += (f'<div class="gcell adias-cell{cor_cls}"{cor_style}>'
+                  f'<div class="gcell-aula">{esc(a.get("aula",""))}</div>'
+                  f'<div class="gcell-turma">{esc(a.get("turma",""))}</div>'
+                  f'<div class="gcell-disc">{esc(a.get("disciplina","Geral"))}</div></div>')
     return f'<div class="adias">{cards}</div>'
 
 # =====================================================================
@@ -2762,6 +2778,17 @@ CORES_POSTIT = [
     ("Azul Ceu", "#a0c4ff"),
     ("Lilas Suave", "#cdb4db"),
     ("Rosa Pastel", "#ffc6ff"),
+]
+
+CORES_AULA = [
+    ("Azul", "#dbeafe"),
+    ("Verde", "#dcfce7"),
+    ("Amarelo", "#fef9c3"),
+    ("Laranja", "#ffedd5"),
+    ("Rosa", "#fce7f3"),
+    ("Lilas", "#ede9fe"),
+    ("Ciano", "#cffafe"),
+    ("Cinza", "#f1f5f9"),
 ]
 
 def form_postit(nota=None, uid="frm"):
@@ -3100,6 +3127,30 @@ def tela_grade_semanal():
             st.query_params.pop("del", None)
             st.rerun()
 
+    cor_id = val_param("cor")
+    if cor_id:
+        try:
+            cor_id = int(cor_id)
+        except ValueError:
+            cor_id = None
+        if cor_id is not None:
+            for item in grade:
+                if item.get("id") == cor_id:
+                    nomes = [n for n, _ in CORES_AULA]
+                    vals = [c for _, c in CORES_AULA]
+                    cor_atual = item.get("cor", "")
+                    if cor_atual in vals:
+                        idx = vals.index(cor_atual)
+                    elif cor_atual in nomes:
+                        idx = nomes.index(cor_atual)
+                    else:
+                        idx = -1
+                    prox_nome = nomes[(idx + 1) % len(CORES_AULA)]
+                    item["cor"] = prox_nome
+                    salvar_grade(grade)
+                    st.query_params.pop("cor", None)
+                    st.rerun()
+
     with st.expander("➕ Adicionar Aulas", expanded=False):
         c_cfg, c_add = st.columns([1, 2.4])
         with c_cfg:
@@ -3164,10 +3215,16 @@ def tela_grade_semanal():
                 st.markdown(f"#### {dia.split('-')[0]}")
                 itens = sorted([x for x in grade if x["dia"] == dia], key=lambda x: ordem_aula(x["aula"]))
                 for item in itens:
+                    cor_val = item.get("cor") or ""
+                    cor_hex = dict(CORES_AULA).get(cor_val, cor_val if cor_val.startswith("#") else "")
+                    cor_style = f' style="background:{cor_hex}"' if cor_hex else ""
+                    cor_cls = " gcell-colorido" if cor_hex else ""
                     st.markdown(
-                        f'<div class="gcell">'
-                        f'<a class="gcell-del" href="{link_para("Grade Semanal")}&del={item["id"]}" '
+                        f'<div class="gcell{cor_cls}"{cor_style}>'
+                        f'<a class="gcell-del" target="_self" href="{link_para("Grade Semanal")}&del={item["id"]}" '
                         f'title="Remover este horario">&#10005;</a>'
+                        f'<a class="gcell-paint" target="_self" href="{link_para("Grade Semanal")}&cor={item["id"]}" '
+                        f'title="Trocar a cor">&#127912;</a>'
                         f'<div class="gcell-aula">{item["aula"]}</div>'
                         f'<div class="gcell-turma">{item["turma"]}</div>'
                         f'<div class="gcell-disc">{item.get("disciplina","Geral")}</div></div>',
