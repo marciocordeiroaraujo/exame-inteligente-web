@@ -1275,6 +1275,10 @@ div[class*="st-key-cell_"] > div[class*="st-key-pal_"] {
 }
 div[class*="st-key-cell_"]:hover > div[class*="st-key-del_"] {display: block; top: 3px; right: 5px;}
 div[class*="st-key-cell_"]:hover > div[class*="st-key-pal_"] {display: block; bottom: 3px; right: 5px;}
+/* mantem o botao da paleta ancorado enquanto o popover esta aberto */
+div[class*="st-key-cell_"]:has(div[class*="st-key-pal_"] [aria-expanded="true"]) > div[class*="st-key-pal_"] {
+    display: block; bottom: 3px; right: 5px;
+}
 div[class*="st-key-cell_"] > div[class*="st-key-del_"] button,
 div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button {
     min-width: 0 !important; min-height: 22px !important; height: 22px !important;
@@ -1285,8 +1289,12 @@ div[class*="st-key-cell_"] > div[class*="st-key-del_"] button {color: #e74c3c !i
 div[class*="st-key-cell_"] > div[class*="st-key-del_"] button:hover {background: #e74c3c; color: #fff !important;}
 div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button {color: #4f46e5 !important;}
 div[class*="st-key-cell_"] > div[class*="st-key-pal_"] button:hover {background: #4f46e5; color: #fff !important;}
-/* Paleta de cores dentro do popover */
-div[class*="st-key-gc_"] button {border: 1px solid rgba(0,0,0,.10) !important; font-weight: 600 !important;}
+/* Paleta de cores dentro do popover: grade compacta de quadradinhos */
+div[class*="st-key-gc_"] button {
+    min-width: 0 !important; width: 30px !important; height: 30px !important;
+    min-height: 30px !important; padding: 0 !important;
+    border: 1px solid rgba(0,0,0,.15) !important; border-radius: 6px !important;
+}
 div[class*="st-key-gc_"][class$="_Azul"] button {background: #dbeafe; color: #1f2937;}
 div[class*="st-key-gc_"][class$="_Verde"] button {background: #dcfce7; color: #1f2937;}
 div[class*="st-key-gc_"][class$="_Amarelo"] button {background: #fef9c3; color: #1f2937;}
@@ -1295,6 +1303,15 @@ div[class*="st-key-gc_"][class$="_Rosa"] button {background: #fce7f3; color: #1f
 div[class*="st-key-gc_"][class$="_Lilas"] button {background: #ede9fe; color: #1f2937;}
 div[class*="st-key-gc_"][class$="_Ciano"] button {background: #cffafe; color: #1f2937;}
 div[class*="st-key-gc_"][class$="_Cinza"] button {background: #f1f5f9; color: #1f2937;}
+div[class*="st-key-gc_"][class$="_Azul"] button:hover {box-shadow: 0 0 0 2px rgba(37,99,235,.6);}
+div[class*="st-key-gc_"][class$="_Verde"] button:hover {box-shadow: 0 0 0 2px rgba(22,163,74,.6);}
+div[class*="st-key-gc_"][class$="_Amarelo"] button:hover {box-shadow: 0 0 0 2px rgba(202,138,4,.6);}
+div[class*="st-key-gc_"][class$="_Laranja"] button:hover {box-shadow: 0 0 0 2px rgba(234,88,12,.6);}
+div[class*="st-key-gc_"][class$="_Rosa"] button:hover {box-shadow: 0 0 0 2px rgba(219,39,119,.6);}
+div[class*="st-key-gc_"][class$="_Lilas"] button:hover {box-shadow: 0 0 0 2px rgba(124,58,237,.6);}
+div[class*="st-key-gc_"][class$="_Ciano"] button:hover {box-shadow: 0 0 0 2px rgba(6,182,212,.6);}
+div[class*="st-key-gc_"][class$="_Cinza"] button:hover {box-shadow: 0 0 0 2px rgba(100,116,139,.6);}
+[data-testid="stPopoverBody"] {min-width: 0 !important; padding: 10px !important;}
 .dash-item-titulo {font-weight: 700; font-size: .85rem; color: var(--cor-texto);}
 .dash-item-sub {font-size: .8rem; color: var(--cor-cinza);}
 .pend-item {
@@ -3208,14 +3225,16 @@ def tela_grade_semanal():
                             salvar_grade(grade)
                             st.rerun()
                         with st.popover("🎨", key=f"pal_{item['id']}", help="Trocar a cor"):
-                            for nome, hex_cor in CORES_AULA:
-                                if st.button(nome, key=f"gc_{item['id']}_{nome}",
-                                             use_container_width=True):
-                                    for g in grade:
-                                        if g.get("id") == item["id"]:
-                                            g["cor"] = nome
-                                    salvar_grade(grade)
-                                    st.rerun()
+                            cols = st.columns(4)
+                            for i, (nome, hex_cor) in enumerate(CORES_AULA):
+                                with cols[i % 4]:
+                                    if st.button("", key=f"gc_{item['id']}_{nome}",
+                                                 help=nome, use_container_width=True):
+                                        for g in grade:
+                                            if g.get("id") == item["id"]:
+                                                g["cor"] = nome
+                                        salvar_grade(grade)
+                                        st.rerun()
 
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
