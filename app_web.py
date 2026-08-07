@@ -312,6 +312,8 @@ def db_set_json(chave, dados):
         _com_conexao(_set)
     except Exception as e:
         print("[BANCO] Erro ao salvar", chave, ":", e)
+        return str(e)
+    return None
 
 def db_get_bytes(chave):
     try:
@@ -447,7 +449,10 @@ def salvar_json(caminho, dados):
     if BANCO_ATIVO:
         chave = _chave_de_caminho(caminho)
         if chave:
-            db_set_json(chave, dados)
+            erro = db_set_json(chave, dados)
+            if erro:
+                st.error(f"Nao foi possivel salvar no banco de dados "
+                         f"({chave}): {erro}")
             return
     with open(caminho, "w", encoding="utf-8") as arquivo:
         json.dump(dados, arquivo, ensure_ascii=False, indent=4)
