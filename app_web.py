@@ -39,6 +39,7 @@ from openpyxl.utils import get_column_letter
 
 try:
     import psycopg2
+    from psycopg2 import pool as psycopg2_pool
     _TEM_PSYCOPG2 = True
 except Exception:
     psycopg2 = None
@@ -223,20 +224,43 @@ def _conectar_banco():
     conn.autocommit = True
     return conn
 
+@st.cache_resource(show_spinner=False)
+def _pool_conexoes():
+    url = _obter_banco_url()
+    if "?" in url:
+        url = url.split("?", 1)[0]
+    return psycopg2_pool.ThreadedConnectionPool(
+        minconn=1, maxconn=4, dsn=url, sslmode="require",
+        connect_timeout=8, keepalives=1, keepalives_idle=20,
+        keepalives_interval=10, keepalives_count=3)
+
 def _com_conexao(fn):
-    conn = None
-    try:
-        conn = _conectar_banco()
-        with conn.cursor() as cur:
-            return fn(conn, cur)
-    except Exception:
-        raise
-    finally:
-        if conn is not None:
+    # Reutiliza conexoes do pool (uma unica criacao no processo) e, se a
+    # conexao caiu (ex.: banco dormiu), descarta o pool e tenta uma vez.
+    tentativas = 2
+    for i in range(tentativas):
+        pool = _pool_conexoes()
+        conn = None
+        try:
+            conn = pool.getconn()
+            with conn.cursor() as cur:
+                resultado = fn(conn, cur)
+            pool.putconn(conn)
+            conn = None
+            return resultado
+        except Exception:
+            if conn is not None:
+                try:
+                    pool.putconn(conn, close=True)
+                except Exception:
+                    pass
             try:
-                conn.close()
+                pool.closeall()
             except Exception:
                 pass
+            _pool_conexoes.clear()
+            if i + 1 >= tentativas:
+                raise
 
 _TABELAS_OK = False
 
@@ -310,8 +334,6 @@ def db_set_bytes(chave, dados):
                 "SET dados=EXCLUDED.dados, atualizado_em=now()",
                 (chave, psycopg2.Binary(bytes(dados))))
         _com_conexao(_set)
-    except Exception as e:
-        print("[BANCO] Erro ao salvar imagem", chave, ":", e)
     except Exception as e:
         print("[BANCO] Erro ao salvar imagem", chave, ":", e)
 
@@ -396,24 +418,31 @@ def pasta_imagens():
     os.makedirs(destino, exist_ok=True)
     return destino
 
-def carregar_json(caminho, padrao):
-    if BANCO_ATIVO:
-        chave = _chave_de_caminho(caminho)
-        if chave:
-            dados = db_get_json(chave)
-            if dados is not None:
-                return dados
+@st.cache_data(show_spinner=False)
+def _carregar_json_cache(caminho):
+    chave = _chave_de_caminho(caminho) if BANCO_ATIVO else None
+    if chave:
+        dados = db_get_json(chave)
+        if dados is not None:
+            return dados
     if caminho and os.path.exists(caminho):
         try:
             with open(caminho, "r", encoding="utf-8") as arquivo:
                 return json.load(arquivo)
         except Exception:
-            return padrao
+            return None
+    return None
+
+def carregar_json(caminho, padrao):
+    dados = _carregar_json_cache(caminho)
+    if dados is not None:
+        return dados
     return padrao
 
 def salvar_json(caminho, dados):
     if not caminho:
         return
+    _carregar_json_cache.clear(caminho)
     if BANCO_ATIVO:
         chave = _chave_de_caminho(caminho)
         if chave:
