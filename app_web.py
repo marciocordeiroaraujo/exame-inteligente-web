@@ -232,7 +232,8 @@ def _pool_conexoes():
     return psycopg2_pool.ThreadedConnectionPool(
         minconn=1, maxconn=4, dsn=url, sslmode="require",
         connect_timeout=8, keepalives=1, keepalives_idle=20,
-        keepalives_interval=10, keepalives_count=3)
+        keepalives_interval=10, keepalives_count=3,
+        autocommit=True)
 
 def _com_conexao(fn):
     # Reutiliza conexoes do pool (uma unica criacao no processo) e, se a
