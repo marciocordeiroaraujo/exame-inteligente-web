@@ -214,7 +214,11 @@ def _obter_banco_url():
         pass
     return ""
 
-BANCO_ATIVO = bool(_obter_banco_url()) and _TEM_PSYCOPG2
+BANCO_CONFIGURADO = bool(_obter_banco_url())
+BANCO_ERRO = ""
+if BANCO_CONFIGURADO and not _TEM_PSYCOPG2:
+    BANCO_ERRO = "psycopg2 nao instalado"
+BANCO_ATIVO = BANCO_CONFIGURADO and _TEM_PSYCOPG2
 
 def _conectar_banco():
     url = _obter_banco_url()
@@ -234,8 +238,7 @@ def _pool_conexoes():
     return psycopg2_pool.ThreadedConnectionPool(
         minconn=1, maxconn=4, dsn=url, sslmode="require",
         connect_timeout=8, keepalives=1, keepalives_idle=20,
-        keepalives_interval=10, keepalives_count=3,
-        autocommit=True)
+        keepalives_interval=10, keepalives_count=3)
 
 def _com_conexao(fn):
     # Reutiliza conexoes do pool (uma unica criacao no processo) e, se a
@@ -246,6 +249,7 @@ def _com_conexao(fn):
         conn = None
         try:
             conn = pool.getconn()
+            conn.autocommit = True
             with conn.cursor() as cur:
                 resultado = fn(conn, cur)
             pool.putconn(conn)
@@ -383,12 +387,39 @@ def salvar_imagem_usuario(nome_arquivo, dados):
     return caminho
 
 def _testar_banco():
+    global BANCO_ERRO
     try:
         _garantir_tabelas()
+        BANCO_ERRO = ""
         return True
     except Exception as e:
+        BANCO_ERRO = str(e)
         print("[BANCO] Nao foi possivel conectar:", e)
         return False
+
+def banco_falho():
+    return BANCO_CONFIGURADO and (not BANCO_ATIVO or BANCO_ERRO)
+
+def _tentar_religar_banco():
+    global BANCO_ATIVO, BANCO_ERRO
+    if not BANCO_CONFIGURADO:
+        return True
+    if BANCO_ATIVO and not BANCO_ERRO:
+        return True
+    if _testar_banco():
+        BANCO_ATIVO = True
+        _carregar_json_cache.clear()
+        return True
+    return False
+
+def aviso_banco():
+    if banco_falho():
+        st.warning(
+            "O banco de dados externo nao esta acessivel no momento. "
+            "Por isso, as contas e os dados salvos podem nao aparecer "
+            "e o login pode falhar. Verifique a configuracao do banco "
+            "(variavel BANCO_URL) e tente novamente em instantes."
+        )
 
 if BANCO_ATIVO and not _testar_banco():
     print("[BANCO] Desativando banco externo - usando arquivos locais.")
@@ -2564,6 +2595,7 @@ def _html_fallback_manual(tempo_ms=4000):
 
 def tela_verificando():
     injetar_css_login()
+    aviso_banco()
     with st.container(key="login_card"):
         st.markdown(
             '<div class="login-logo">'
@@ -2882,6 +2914,7 @@ def montar_sidebar():
 # =====================================================================
 def tela_login():
     injetar_css_login()
+    aviso_banco()
     with st.container(key="login_card"):
         st.markdown(
             '<div class="login-logo">'
@@ -2920,11 +2953,16 @@ def tela_login():
                 entrar = st.form_submit_button("Entrar na conta", type="primary",
                                                use_container_width=True)
             if entrar:
+                _tentar_religar_banco()
                 conta = autenticar_usuario(login_user, login_senha)
                 if conta:
                     st.session_state["usuario"] = conta["usuario"]
                     st.query_params.clear()
                     st.rerun()
+                elif banco_falho():
+                    st.error("Nao foi possivel validar o login: o banco de "
+                             "dados externo esta indisponivel. Assim que ele "
+                             "voltar, tente entrar novamente.")
                 else:
                     st.error("Email, usuario ou senha incorretos.")
         else:
