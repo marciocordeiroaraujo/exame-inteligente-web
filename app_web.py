@@ -101,6 +101,7 @@ CONFIG_PADRAO = {
     "mostrar_turma": True,
     "mostrar_data": True,
     "aparencia": "System",
+    "tema_visual": "",
     "cor_tema": "blue",
     "cor_principal": "#1f538d",
     "cor_secundaria": "#14375e",
@@ -1616,23 +1617,39 @@ hr {margin: .7rem 0; border-color: var(--borda);}
 def injetar_css(config):
     aparencia = config.get("aparencia", "System")
     dark = aparencia == "Dark"
-    cor_tema = config.get("cor_tema", "blue")
-    presets = {
-        "blue": ("#1f538d", "#14375e"),
-        "green": ("#1d7a46", "#104f2c"),
-        "dark-blue": ("#1a3a6b", "#0e2340"),
-    }
-    if cor_tema in presets:
-        cor_p, cor_s = presets[cor_tema]
+    tema_visual = config.get("tema_visual", "")
+
+    if tema_visual == "roxo":
+        # Tema de TESTE: Dark com tons de roxo
+        # (primaryColor #7d3fe0, backgroundColor #090710,
+        #  secondaryBackgroundColor #151221, textColor #e4e1eb)
+        dark = True
+        cor_p = "#7d3fe0"
+        cor_s = "#5b2ea6"
+        cor_fundo = "#090710"
+        card_bg = "#151221"
+        borda = "#2a2540"
+        texto = "#e4e1eb"
+        texto_cinza = "#a89fc0"
     else:
-        cor_p = config.get("cor_principal", "#1f538d")
-        cor_s = config.get("cor_secundaria", "#14375e")
-    cor_fundo = config.get("cor_fundo", "#2b2b2b") if dark else "#e4e7ec"
+        cor_tema = config.get("cor_tema", "blue")
+        presets = {
+            "blue": ("#1f538d", "#14375e"),
+            "green": ("#1d7a46", "#104f2c"),
+            "dark-blue": ("#1a3a6b", "#0e2340"),
+        }
+        if cor_tema in presets:
+            cor_p, cor_s = presets[cor_tema]
+        else:
+            cor_p = config.get("cor_principal", "#1f538d")
+            cor_s = config.get("cor_secundaria", "#14375e")
+        cor_fundo = config.get("cor_fundo", "#2b2b2b") if dark else "#e4e7ec"
+        card_bg = "#2b2b2b" if dark else "#ffffff"
+        borda = "rgba(255,255,255,0.10)" if dark else "#d3d8e0"
+        texto = "#e8e8e8" if dark else "#1f1f1f"
+        texto_cinza = "#9a9a9a" if dark else "#6c757d"
+
     txt_btn = cor_texto_legivel(cor_p)
-    card_bg = "#2b2b2b" if dark else "#ffffff"
-    borda = "rgba(255,255,255,0.10)" if dark else "#d3d8e0"
-    texto = "#e8e8e8" if dark else "#1f1f1f"
-    texto_cinza = "#9a9a9a" if dark else "#6c757d"
 
     cor_p_hover = ajustar_cor(cor_p, 1.12)
     cor_p_deep = ajustar_cor(cor_p, 0.82)
@@ -4978,19 +4995,35 @@ def tela_configuracoes():
                 st.error("Por favor, verifique se os campos numéricos estão corretos.")
 
     with tab_tema:
-        st.markdown("**Modo de exibição:**")
-        opcoes_exib = ["Claro", "Escuro"]
+        st.markdown("**Tema visual:**")
+        tema_atual = config.get("tema_visual", "")
         aparencia_atual = config.get("aparencia", "Light")
-        idx_exib = 1 if aparencia_atual == "Dark" else 0
-        exibicao = st.selectbox("Modo de Exibicao:", opcoes_exib, index=idx_exib)
-        st.caption("As cores do tema sao **fixas** (azul padrao). "
-                   "A escolha de cores personalizadas voltara em uma proxima versao.")
-        if st.button("Salvar Modo de Exibicao", type="primary",
+        if tema_atual == "roxo":
+            idx_tema = 2
+        elif aparencia_atual == "Dark":
+            idx_tema = 1
+        else:
+            idx_tema = 0
+        opcoes_tema = ["Padr\u00e3o - Claro", "Padr\u00e3o - Escuro", "Roxo Dark (Teste)"]
+        tema = st.selectbox("Tema:", opcoes_tema, index=idx_tema)
+        if tema == "Roxo Dark (Teste)":
+            st.caption("Tema de **teste**: fundo escuro roxo (#090710) com acentos em "
+                       "#7d3fe0. Se nao gostar, volte para o modo antigo escolhendo "
+                       "'Padr\u00e3o - Claro' ou 'Padr\u00e3o - Escuro'.")
+        if st.button("Salvar Tema", type="primary",
                      use_container_width=True, key="cfg_salvar_tema"):
             nova = dict(config)
-            nova["aparencia"] = "Dark" if exibicao == "Escuro" else "Light"
+            if tema == "Roxo Dark (Teste)":
+                nova["tema_visual"] = "roxo"
+                nova["aparencia"] = "Dark"
+            elif tema == "Padr\u00e3o - Escuro":
+                nova["tema_visual"] = ""
+                nova["aparencia"] = "Dark"
+            else:
+                nova["tema_visual"] = ""
+                nova["aparencia"] = "Light"
             salvar_config(nova)
-            st.success("Modo de exibicao atualizado!")
+            st.success("Tema atualizado!")
             st.rerun()
 
     with tab_chave:
