@@ -1749,8 +1749,8 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
 
 /* ---- Logo da sidebar cabendo sem aumentar a barra (so no tema Roxo) ---- */
 .logo-aba img {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 80% !important;
+    max-width: 80% !important;
 }
 
 /* ---- Botoes de criar post-it (Inicio + Lembretes) no estilo "Criar Questao" ---- */
