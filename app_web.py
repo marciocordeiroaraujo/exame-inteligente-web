@@ -1753,7 +1753,7 @@ section[data-testid="stSidebar"] {
     min-width: 28rem !important;
 }
 .logo-aba img {
-    width: 660px !important;
+    width: 100% !important;
     max-width: 100% !important;
 }
 
