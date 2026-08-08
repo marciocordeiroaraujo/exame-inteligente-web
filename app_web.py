@@ -962,7 +962,7 @@ section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {scrollbar-wid
 section[data-testid="stSidebar"] > div[style*="cursor: col-resize"] {display: none !important;}
 section[data-testid="stSidebar"] {color: #ececec !important;}
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-    padding-top: 2px !important;
+    padding-top: 0 !important;
     padding-bottom: 6px !important;
 }
 @media (min-width: 769px) {
@@ -984,10 +984,10 @@ section[data-testid="stSidebar"] .stCaption {
 .logo-web small {font-size: .5em; letter-spacing: 4px; font-weight: 700;
     -webkit-text-fill-color: rgba(255,255,255,.70); color: rgba(255,255,255,.70);}
 .logo-aba {
-    text-align: center; padding: 2px 0 4px 0; line-height: 0;
+    text-align: center; padding: 0 0 4px 0; line-height: 0;
 }
 .logo-aba img {
-    width: 165px; height: auto; display: inline-block;
+    width: 165px; height: auto; display: inline-block; margin-top: -4px;
     filter: drop-shadow(0 0 5px rgba(255,255,255,.20));
 }
 .nav-secao {
@@ -1748,9 +1748,14 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
 }
 
 /* ---- Logo da sidebar cabendo sem aumentar a barra (so no tema Roxo) ---- */
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding-top: 2px !important;
+    margin-top: 0 !important;
+}
 .logo-aba img {
     width: 80% !important;
     max-width: 80% !important;
+    margin-top: 0 !important;
 }
 .logo-aba {
     padding: 10px 0 4px 0 !important;
