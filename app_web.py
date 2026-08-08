@@ -1697,6 +1697,18 @@ def injetar_css(config):
         borda = "#eef0f4"
         texto = "#2c2e3e"
         texto_cinza = "#838896"
+    elif tema_visual == "teste":
+        # Tema de TESTE: inspirado no mockup Stitch "Teacher Dashboard"
+        # (sidebar roxo-escuro #1a0b2e, primario #8b5cf6, fundo #f3f4f6,
+        #  cards brancos com sombra, fonte Inter)
+        dark = False
+        cor_p = "#8b5cf6"
+        cor_s = "#4c1d95"
+        cor_fundo = "#f3f4f6"
+        card_bg = "#ffffff"
+        borda = "#e5e7eb"
+        texto = "#1f2937"
+        texto_cinza = "#6b7280"
     else:
         cor_tema = config.get("cor_tema", "blue")
         presets = {
@@ -1899,6 +1911,128 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     border: 1px solid #eef0f4 !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+</style>""")
+    if tema_visual == "teste":
+        # Tema de TESTE "Stitch": sidebar roxo-escuro + conteudo claro em cards
+        # brancos com sombra e fonte Inter. Isolado: so este tema e alterado.
+        css = css.replace(
+            "</style>",
+            """/* ---- Tema Teste (Stitch): Teacher Dashboard ---- */
+html, body, .stApp {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+}
+[data-testid="stAppViewContainer"] {
+    background: #f3f4f6 !important;
+}
+
+/* Sidebar roxo-escuro (#1a0b2e) */
+section[data-testid="stSidebar"] {
+    background: #1a0b2e !important;
+    border-right: 1px solid rgba(255,255,255,0.08) !important;
+}
+section[data-testid="stSidebar"] { color: #d1d5db !important; }
+section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+section[data-testid="stSidebar"] .stCaption {
+    color: #d1d5db !important;
+}
+section[data-testid="stSidebar"] .logo-aba img {
+    filter: drop-shadow(0 2px 8px rgba(139,92,246,0.35));
+}
+section[data-testid="stSidebar"] .nav-secao {
+    color: #9ca3af !important;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Botoes da sidebar - inativo (texto cinza claro, hover roxo translucido) */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: transparent !important;
+    color: #d1d5db !important;
+    border: 1px solid transparent !important;
+    border-radius: 12px !important;
+    text-align: left !important;
+    padding: 9px 14px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: none !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+    color: #d1d5db !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: rgba(139, 92, 246, 0.10) !important;
+    color: #ffffff !important;
+    transform: translateX(3px);
+}
+
+/* Botao ativo: roxo solido #8b5cf6 (como o item ativo do mockup) */
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background-color: #8b5cf6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 3px 10px rgba(139, 92, 246, 0.35) !important;
+    font-weight: 600 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
+    color: #ffffff !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+    background-color: #7c3aed !important;
+    transform: none !important;
+}
+
+/* Rodape (Logado / Sair): cartao de perfil como no mockup */
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    margin: 10px 10px 4px 10px !important;
+}
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] hr {
+    display: none !important;
+}
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] [data-testid="stCaption"] {
+    color: #9ca3af !important; font-size: .78rem !important;
+}
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] button {
+    background-color: transparent !important;
+    color: #e5e7eb !important;
+    border: 1px solid rgba(255,255,255,0.20) !important;
+    border-radius: 8px !important;
+    font-size: .78rem !important;
+    padding: 4px 10px !important;
+    height: auto !important;
+    box-shadow: none !important;
+}
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] button:hover {
+    background-color: rgba(255,255,255,0.10) !important;
+}
+
+/* Cards do conteudo: brancos, cantos grandes (rounded-2xl) e card-shadow */
+[data-testid="stVerticalBlockBorderWrapper"], .card, div[class*="st-key-card_"],
+[data-testid="stForm"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -1px rgba(0,0,0,0.06) !important;
+}
+h1, h2, h3, h4, h5 { color: #111827 !important; }
+
+/* Botoes "Novo" (popover) no estilo do mockup: contorno roxo claro */
+div[class*="st-key-dash_novo_pop"] [data-testid="stPopoverButton"],
+div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"] {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    color: #7c3aed !important;
+    border: 1px solid #c4b5fd !important;
+    box-shadow: none !important;
+}
+div[class*="st-key-dash_novo_pop"] [data-testid="stPopoverButton"]:hover,
+div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"]:hover {
+    background: #f5f3ff !important;
 }
 </style>""")
     css += """
@@ -2870,7 +3004,7 @@ ICONES_NAV = {
 
 def montar_sidebar():
     atual = pagina_atual()
-    logo_b64 = LOGO_ABA_B64_ROXO if carregar_config().get("tema_visual") == "roxo" else LOGO_ABA_B64
+    logo_b64 = LOGO_ABA_B64_ROXO if carregar_config().get("tema_visual") in ("roxo", "teste") else LOGO_ABA_B64
     with st.sidebar:
         st.markdown(
             '<div class="logo-aba">'
@@ -5265,11 +5399,13 @@ def tela_configuracoes():
             idx_tema = 2
         elif tema_atual == "branco_novo":
             idx_tema = 3
+        elif tema_atual == "teste":
+            idx_tema = 4
         elif aparencia_atual == "Dark":
             idx_tema = 1
         else:
             idx_tema = 0
-        opcoes_tema = ["Padr\u00e3o - Claro", "Padr\u00e3o - Escuro", "Roxo Dark (Teste)", "Branco Novo"]
+        opcoes_tema = ["Padr\u00e3o - Claro", "Padr\u00e3o - Escuro", "Roxo Dark (Teste)", "Branco Novo", "Teste (Stitch)"]
         tema = st.selectbox("Tema:", opcoes_tema, index=idx_tema)
         if tema == "Roxo Dark (Teste)":
             st.caption("Tema de **teste**: fundo escuro roxo (#090710) com acentos em "
@@ -5279,6 +5415,11 @@ def tela_configuracoes():
             st.caption("Tema novo **\"Branco Novo\"**: visual Clean SaaS claro, "
                        "fundo off-white (#f4f5f7), sidebar branca e detalhes em "
                        "#7d3fe0. Nao altera nenhum outro tema.")
+        if tema == "Teste (Stitch)":
+            st.caption("Tema de **teste** inspirado no mockup Stitch: sidebar "
+                       "roxo-escuro (#1a0b2e), primario #8b5cf6, fundo claro "
+                       "#f3f4f6 com cards brancos e fonte Inter. Nao altera "
+                       "nenhum outro tema.")
         if st.button("Salvar Tema", type="primary",
                      use_container_width=True, key="cfg_salvar_tema"):
             nova = dict(config)
@@ -5287,6 +5428,9 @@ def tela_configuracoes():
                 nova["aparencia"] = "Dark"
             elif tema == "Branco Novo":
                 nova["tema_visual"] = "branco_novo"
+                nova["aparencia"] = "Light"
+            elif tema == "Teste (Stitch)":
+                nova["tema_visual"] = "teste"
                 nova["aparencia"] = "Light"
             elif tema == "Padr\u00e3o - Escuro":
                 nova["tema_visual"] = ""
