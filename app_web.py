@@ -869,9 +869,10 @@ def _b64_arquivo(nome_arquivo):
         with open(caminho, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except OSError:
-        return _LOGO_ABA_B64_PADRAO
+        return None
 
-LOGO_ABA_B64 = _b64_arquivo("logo_texto.png")
+LOGO_ABA_B64 = _b64_arquivo("logo_aba_padrao.png") or _LOGO_ABA_B64_PADRAO
+LOGO_ABA_B64_ROXO = _b64_arquivo("logo_texto.png") or _LOGO_ABA_B64_PADRAO
 
 
 # =====================================================================
@@ -2702,10 +2703,11 @@ ICONES_NAV = {
 
 def montar_sidebar():
     atual = pagina_atual()
+    logo_b64 = LOGO_ABA_B64_ROXO if carregar_config().get("tema_visual") == "roxo" else LOGO_ABA_B64
     with st.sidebar:
         st.markdown(
             '<div class="logo-aba">'
-            f'<img src="data:image/png;base64,{LOGO_ABA_B64}" alt="Exame Inteligente" /></div>',
+            f'<img src="data:image/png;base64,{logo_b64}" alt="Exame Inteligente" /></div>',
             unsafe_allow_html=True)
         st.markdown('<div class="nav-secao">Planejamento</div>', unsafe_allow_html=True)
         for chave, rotulo in NAV_PLANEJAMENTO:
