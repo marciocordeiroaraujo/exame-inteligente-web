@@ -939,8 +939,14 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(255,255,255,0.10);
 }
 @media (min-width: 769px) {
-    section[data-testid="stSidebar"] {width: 16.5rem !important; min-width: 16.5rem !important;}
+    section[data-testid="stSidebar"] {width: 15rem !important; min-width: 15rem !important;}
 }
+/* Esconde a barra de rolagem da sidebar (conteudo fica todo visivel) */
+section[data-testid="stSidebar"] ::-webkit-scrollbar {display: none !important; width: 0 !important; height: 0 !important;}
+section[data-testid="stSidebar"] {scrollbar-width: none !important; -ms-overflow-style: none !important;}
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {scrollbar-width: none !important; -ms-overflow-style: none !important;}
+/* Remove o controle de redimensionar (alca na borda direita) */
+section[data-testid="stSidebar"] > div[style*="cursor: col-resize"] {display: none !important;}
 section[data-testid="stSidebar"] {color: #ececec !important;}
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
     padding-top: 2px !important;
@@ -2686,9 +2692,6 @@ def montar_sidebar():
                 st.query_params["pagina"] = chave
                 st.rerun()
         st.markdown("---")
-        config = carregar_config()
-        escola = config.get("escola", "Escola")
-        st.caption(f"{escola}\n\nExame Inteligente 4.0 Web")
         user = usuario_atual()
         if user:
             conta = conta_atual(user)
