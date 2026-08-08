@@ -986,7 +986,7 @@ section[data-testid="stSidebar"] .stCaption {
     text-align: center; padding: 10px 0 4px 0; line-height: 0;
 }
 .logo-aba img {
-    width: 330px; max-width: 100%; height: auto; display: inline-block;
+    width: 110px; height: auto; display: inline-block;
     filter: drop-shadow(0 0 5px rgba(255,255,255,.20));
 }
 .nav-secao {
@@ -1744,6 +1744,12 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
 section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
     transform: none !important;
+}
+
+/* ---- Logo da sidebar maior (so no tema Roxo) ---- */
+.logo-aba img {
+    width: 330px !important;
+    max-width: 100% !important;
 }
 
 /* ---- Botoes de criar post-it (Inicio + Lembretes) no estilo "Criar Questao" ---- */
