@@ -1019,6 +1019,10 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
 section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
     color: rgba(255,255,255,.85) !important;
 }
+/* Rodape da sidebar (login + Sair) sempre no fim, adaptando-se a tela */
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] {
+    padding-top: 10px !important;
+}
 
 /* ---------------- Botoes ---------------- */
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
@@ -1866,6 +1870,22 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
 }
 </style>""")
+    css += """
+<style>
+/* Em telas baixas, compacta a sidebar para caber sem rolagem (todos os temas) */
+@media (max-height: 900px) {
+    section[data-testid="stSidebar"] .logo-aba img { width: 96px !important; }
+    section[data-testid="stSidebar"] .stButton > button { padding: .26rem .6rem !important; margin-bottom: 1px !important; font-size: .84rem !important; }
+    section[data-testid="stSidebar"] .nav-secao { padding: 5px 12px 3px 12px !important; }
+    section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] { padding-top: 4px !important; }
+}
+@media (max-height: 780px) {
+    section[data-testid="stSidebar"] .logo-aba img { width: 84px !important; }
+    section[data-testid="stSidebar"] .stButton > button { padding: .22rem .5rem !important; margin-bottom: 0 !important; font-size: .82rem !important; }
+    section[data-testid="stSidebar"] .nav-secao { padding: 3px 12px 2px 12px !important; }
+}
+</style>
+"""
     st.markdown(css, unsafe_allow_html=True)
 
 CSS_LOGIN = """
@@ -2311,6 +2331,24 @@ def _html_js_movel(usuario=None, token=None, limpar=False):
     return s.offsetWidth || 300;
   }
 
+  // Prende o rodape (login + Sair) ao fim da sidebar, sem folga vertical.
+  function pinFooter() {
+    var sc = el('section[data-testid="stSidebar"] [data-testid="stSidebarContent"]');
+    var vb = sc ? sc.querySelector('[data-testid="stVerticalBlock"]') : null;
+    var f = el('div[class*="st-key-sb_footer"]');
+    if (!sc || !vb || !f) return;
+    if (vb.style.minHeight) vb.style.minHeight = '';
+    var fw = f.parentElement;
+    if (!fw || fw.parentElement !== vb) return;
+    fw.style.marginTop = 'auto';
+    vb.style.display = 'flex';
+    vb.style.flexDirection = 'column';
+    var sb = sc.getBoundingClientRect();
+    var fb = f.getBoundingClientRect();
+    var spare = (sb.top + sc.clientHeight - 8) - fb.bottom;
+    if (spare > 0) vb.style.minHeight = (vb.getBoundingClientRect().height + spare) + 'px';
+  }
+
   function inXScroll(e) {
     if (!e.target || !e.target.closest) return false;
     return !!e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
@@ -2460,7 +2498,7 @@ def _html_js_movel(usuario=None, token=None, limpar=False):
     if (!side()) return;
     if (!isOpen()) { var b = sbBtn('stExpandSidebarButton'); if (b) b.click(); }
   }
-  W.addEventListener('resize', function() { forceInitialOpen(); enforceDesktop(); watchNav(); syncOverlay(); });
+  W.addEventListener('resize', function() { forceInitialOpen(); enforceDesktop(); watchNav(); syncOverlay(); pinFooter(); });
 
   W.__ei = {
     isOpen: isOpen, openSb: openSb, closeSb: closeSb, toggleSb: toggleSb,
@@ -2468,11 +2506,11 @@ def _html_js_movel(usuario=None, token=None, limpar=False):
   };
 
   var obs = new MutationObserver(function() {
-    ensureFab(); watchNav(); ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay();
+    ensureFab(); watchNav(); ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); pinFooter();
   });
   if (d.body) obs.observe(d.body, { childList: true, subtree: true });
-  setTimeout(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); }, 400);
-  setInterval(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); }, 500);
+  setTimeout(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); pinFooter(); }, 400);
+  setInterval(function() { ensureOverlay(); forceInitialOpen(); enforceDesktop(); syncOverlay(); pinFooter(); }, 500);
 })();
 """
 
@@ -2824,19 +2862,20 @@ def montar_sidebar():
                          use_container_width=True):
                 st.query_params["pagina"] = chave
                 st.rerun()
-        st.markdown("---")
-        user = usuario_atual()
-        if user:
-            conta = conta_atual(user)
-            nome_conta = conta.get("nome", user) if conta else user
-            st.caption(f"Logado: {nome_conta}\n@{user}")
-            if st.button("Sair", key="sair_conta", use_container_width=True):
-                st.session_state.pop("usuario", None)
-                st.session_state.pop("bem_vindo", None)
-                st.session_state.pop("login_modo", None)
-                st.session_state["deslogado_manual"] = True
-                st.query_params.clear()
-                st.rerun()
+        with st.container(key="sb_footer"):
+            st.markdown("---")
+            user = usuario_atual()
+            if user:
+                conta = conta_atual(user)
+                nome_conta = conta.get("nome", user) if conta else user
+                st.caption(f"Logado: {nome_conta}\n@{user}")
+                if st.button("Sair", key="sair_conta", use_container_width=True):
+                    st.session_state.pop("usuario", None)
+                    st.session_state.pop("bem_vindo", None)
+                    st.session_state.pop("login_modo", None)
+                    st.session_state["deslogado_manual"] = True
+                    st.query_params.clear()
+                    st.rerun()
 
 # =====================================================================
 # 6.1 TELA DE LOGIN / CRIACAO DE CONTA
