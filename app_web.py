@@ -952,7 +952,7 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(255,255,255,0.10);
 }
 @media (min-width: 769px) {
-    section[data-testid="stSidebar"] {width: 15rem !important; min-width: 15rem !important;}
+    section[data-testid="stSidebar"] {width: 14.375rem !important; min-width: 14.375rem !important;}
 }
 /* Esconde a barra de rolagem da sidebar (conteudo fica todo visivel) */
 section[data-testid="stSidebar"] ::-webkit-scrollbar {display: none !important; width: 0 !important; height: 0 !important;}
