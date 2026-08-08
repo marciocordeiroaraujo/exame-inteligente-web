@@ -454,7 +454,7 @@ def pasta_imagens():
     os.makedirs(destino, exist_ok=True)
     return destino
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=120)
 def _carregar_json_cache(caminho):
     chave = _chave_de_caminho(caminho) if BANCO_ATIVO else None
     if chave:
