@@ -1650,6 +1650,18 @@ def injetar_css(config):
         borda = "#2a2540"
         texto = "#e4e1eb"
         texto_cinza = "#a89fc0"
+    elif tema_visual == "branco_novo":
+        # Tema novo: "Branco Novo" - Clean SaaS claro com acentos roxos
+        # (primaryColor #7d3fe0, backgroundColor #f4f5f7,
+        #  secondaryBackgroundColor #ffffff, textColor #2c2e3e)
+        dark = False
+        cor_p = "#7d3fe0"
+        cor_s = "#5b2ea6"
+        cor_fundo = "#f4f5f7"
+        card_bg = "#ffffff"
+        borda = "#eef0f4"
+        texto = "#2c2e3e"
+        texto_cinza = "#838896"
     else:
         cor_tema = config.get("cor_tema", "blue")
         presets = {
@@ -1775,6 +1787,83 @@ div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"] {
 div[class*="st-key-dash_novo_pop"] [data-testid="stPopoverButton"]:hover,
 div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"]:hover {
     background: linear-gradient(135deg, var(--cor-ph) 0%, var(--cor-pd) 100%) !important;
+}
+</style>""")
+    if tema_visual == "branco_novo":
+        # Tema novo "Branco Novo": fundo off-white, sidebar branca e detalhes roxos
+        # (so este tema; nenhum outro e afetado)
+        css = css.replace(
+            "</style>",
+            """/* ---- Tema Branco Novo: Clean SaaS (fundo off-white, sidebar branca) ---- */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #fdfdfd 0%, #f4f5f7 100%) !important;
+}
+
+/* Barra lateral branca com sombra suave projetada para a direita */
+section[data-testid="stSidebar"] {
+    background: #ffffff !important;
+    border-right: 1px solid #eef0f4 !important;
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.03) !important;
+}
+section[data-testid="stSidebar"] {color: #2c2e3e !important;}
+section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stMarkdown, section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+section[data-testid="stSidebar"] .stCaption {
+    color: #2c2e3e !important;
+}
+section[data-testid="stSidebar"] .logo-aba img {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.10));
+}
+
+/* Titulos das secoes da sidebar (cinza claro, versao limpa) */
+section[data-testid="stSidebar"] .nav-secao {
+    color: #838896 !important;
+    border-top: 1px solid #eef0f4;
+}
+
+/* Botoes da sidebar - estado padrao (inativo) */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: transparent !important;
+    color: #4a4d5e !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    transition: all 0.25s ease-in-out !important;
+    text-align: left !important;
+    padding: 8px 14px !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+    color: #4a4d5e !important;
+}
+
+/* Hover: acende com o roxo da marca */
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: rgba(125, 63, 224, 0.08) !important;
+    color: #7d3fe0 !important;
+    transform: translateX(3px);
+}
+
+/* Botao ativo: solido roxo com sombra iluminada */
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(125, 63, 224, 0.25) !important;
+    font-weight: 600 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
+    color: #ffffff !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+    background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
+    transform: none !important;
+}
+
+/* Cards do conteudo principal: brancos com sombra sutil */
+[data-testid="stForm"] {
+    background-color: #ffffff !important;
+    border: 1px solid #eef0f4 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
 }
 </style>""")
     st.markdown(css, unsafe_allow_html=True)
@@ -5097,22 +5186,31 @@ def tela_configuracoes():
         aparencia_atual = config.get("aparencia", "Light")
         if tema_atual == "roxo":
             idx_tema = 2
+        elif tema_atual == "branco_novo":
+            idx_tema = 3
         elif aparencia_atual == "Dark":
             idx_tema = 1
         else:
             idx_tema = 0
-        opcoes_tema = ["Padr\u00e3o - Claro", "Padr\u00e3o - Escuro", "Roxo Dark (Teste)"]
+        opcoes_tema = ["Padr\u00e3o - Claro", "Padr\u00e3o - Escuro", "Roxo Dark (Teste)", "Branco Novo"]
         tema = st.selectbox("Tema:", opcoes_tema, index=idx_tema)
         if tema == "Roxo Dark (Teste)":
             st.caption("Tema de **teste**: fundo escuro roxo (#090710) com acentos em "
                        "#7d3fe0. Se nao gostar, volte para o modo antigo escolhendo "
                        "'Padr\u00e3o - Claro' ou 'Padr\u00e3o - Escuro'.")
+        if tema == "Branco Novo":
+            st.caption("Tema novo **\"Branco Novo\"**: visual Clean SaaS claro, "
+                       "fundo off-white (#f4f5f7), sidebar branca e detalhes em "
+                       "#7d3fe0. Nao altera nenhum outro tema.")
         if st.button("Salvar Tema", type="primary",
                      use_container_width=True, key="cfg_salvar_tema"):
             nova = dict(config)
             if tema == "Roxo Dark (Teste)":
                 nova["tema_visual"] = "roxo"
                 nova["aparencia"] = "Dark"
+            elif tema == "Branco Novo":
+                nova["tema_visual"] = "branco_novo"
+                nova["aparencia"] = "Light"
             elif tema == "Padr\u00e3o - Escuro":
                 nova["tema_visual"] = ""
                 nova["aparencia"] = "Dark"
