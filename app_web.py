@@ -1747,11 +1747,7 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     transform: none !important;
 }
 
-/* ---- Logo da sidebar maior (so no tema Roxo) ---- */
-section[data-testid="stSidebar"] {
-    width: 28rem !important;
-    min-width: 28rem !important;
-}
+/* ---- Logo da sidebar cabendo sem aumentar a barra (so no tema Roxo) ---- */
 .logo-aba img {
     width: 100% !important;
     max-width: 100% !important;
