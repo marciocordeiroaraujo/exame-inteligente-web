@@ -1678,6 +1678,19 @@ def injetar_css(config):
     css = css.replace("@@BORDA@@", borda)
     css = css.replace("@@TEXTO@@", texto)
     css = css.replace("@@CINZA@@", texto_cinza)
+    if tema_visual == "roxo":
+        # Degrade radial roxo/vermelho no fundo + sidebar solida (tema de teste)
+        css = css.replace(
+            "</style>",
+            """[data-testid="stAppViewContainer"] {
+    background-color: #090710;
+    background-image: radial-gradient(circle at 0% 0%, #1a0b2e 0%, #090710 40%, #090710 100%) !important;
+}
+section[data-testid="stSidebar"] {
+    background: #151221 !important;
+    border-right: 1px solid #2a2540;
+}
+</style>""")
     st.markdown(css, unsafe_allow_html=True)
 
 CSS_LOGIN = """
