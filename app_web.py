@@ -987,7 +987,7 @@ section[data-testid="stSidebar"] .stCaption {
     text-align: center; padding: 0 0 4px 0; line-height: 0;
 }
 .logo-aba img {
-    width: 165px; height: auto; display: inline-block;
+    width: 124px; height: auto; display: inline-block;
     filter: drop-shadow(0 0 5px rgba(255,255,255,.20));
 }
 .nav-secao {
