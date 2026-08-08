@@ -1748,8 +1748,12 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
 }
 
 /* ---- Logo da sidebar maior (so no tema Roxo) ---- */
+section[data-testid="stSidebar"] {
+    width: 28rem !important;
+    min-width: 28rem !important;
+}
 .logo-aba img {
-    width: 330px !important;
+    width: 660px !important;
     max-width: 100% !important;
 }
 
