@@ -1679,16 +1679,53 @@ def injetar_css(config):
     css = css.replace("@@TEXTO@@", texto)
     css = css.replace("@@CINZA@@", texto_cinza)
     if tema_visual == "roxo":
-        # Degrade radial roxo/vermelho no fundo + sidebar solida (tema de teste)
+        # Degrade radial roxo/vermelho no fundo + sidebar Glassmorphism (tema de teste)
         css = css.replace(
             "</style>",
             """[data-testid="stAppViewContainer"] {
     background-color: #090710;
     background-image: radial-gradient(circle at 0% 0%, #1a0b2e 0%, #090710 40%, #090710 100%) !important;
 }
+
+/* ---- Sidebar Glassmorphism (tema Roxo) ---- */
 section[data-testid="stSidebar"] {
-    background: #151221 !important;
-    border-right: 1px solid #2a2540;
+    background: linear-gradient(180deg, #13101d 0%, #0a0812 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+section[data-testid="stSidebar"] .nav-secao {
+    color: #8f85a3 !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+}
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    color: #b9b3c7 !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 10px !important;
+    transition: all 0.25s ease-in-out !important;
+    text-align: left !important;
+    padding: 8px 14px !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: rgba(125, 63, 224, 0.15) !important;
+    border-color: rgba(125, 63, 224, 0.4) !important;
+    color: #ffffff !important;
+    transform: translateX(3px);
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(125, 63, 224, 0.35) !important;
+    font-weight: 600 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] * {
+    color: #ffffff !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+    background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
+    transform: none !important;
 }
 </style>""")
     st.markdown(css, unsafe_allow_html=True)
