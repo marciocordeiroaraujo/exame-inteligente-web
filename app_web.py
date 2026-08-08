@@ -1733,6 +1733,22 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
     background: linear-gradient(90deg, #7d3fe0 0%, #6323c2 100%) !important;
     transform: none !important;
 }
+
+/* ---- Botoes de criar post-it (Inicio + Lembretes) no estilo "Criar Questao" ---- */
+div[class*="st-key-dash_novo_pop"] [data-testid="stPopoverButton"],
+div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"] {
+    border-radius: 12px !important;
+    font-weight: 800 !important;
+    height: 44px !important;
+    background: linear-gradient(135deg, var(--cor-p) 0%, var(--cor-pd) 100%) !important;
+    border: 1px solid rgba(125, 63, 224, 0.6) !important;
+    color: var(--btn-fg) !important;
+    box-shadow: 0 8px 18px rgba(125, 63, 224, 0.35) !important;
+}
+div[class*="st-key-dash_novo_pop"] [data-testid="stPopoverButton"]:hover,
+div[class*="st-key-anot_novo_pop"] [data-testid="stPopoverButton"]:hover {
+    background: linear-gradient(135deg, var(--cor-ph) 0%, var(--cor-pd) 100%) !important;
+}
 </style>""")
     st.markdown(css, unsafe_allow_html=True)
 
