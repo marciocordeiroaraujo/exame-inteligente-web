@@ -18,6 +18,7 @@ import unicodedata
 import hmac
 import shutil
 import pathlib
+import html
 from urllib.parse import unquote
 
 import smtplib
@@ -1664,6 +1665,81 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     [data-testid="stMain"] .block-container {padding-top: 2vh !important;}
     body::before, body::after {opacity: .55;}
     .cal-scroll .cal-table {min-width: 460px;}
+}
+
+/* =====================================================================
+   CATALOGO DE QUESTOES: cards em grade (modelo "retangulos")
+   Adaptado do mockup Central de Questoes (Tailwind -> Streamlit).
+   Usa as variaveis do tema, entao funciona em todos os temas.
+   ===================================================================== */
+div[class*="st-key-cat_card_"] {
+    background: var(--card-bg) !important;
+    border: 2px solid var(--borda) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.06) !important;
+    padding: 1.05rem 1.15rem !important;
+    height: 100%;
+    display: flex; flex-direction: column;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+div[class*="st-key-cat_card_"]:hover {
+    border-color: var(--cor-p) !important;
+    box-shadow: 0 6px 14px rgba(0,0,0,.08) !important;
+}
+/* O card e' o proprio stVerticalBlock; o stLayoutWrapper que o envolve precisa
+   esticar para a altura da coluna (para cards da mesma linha ficarem iguais) */
+div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-cat_card_"]) {
+    height: 100% !important;
+}
+/* O "spacer" dentro do card cresce para preencher o espaco livre,
+   empurrando a barra de acoes (Ver / Editar / Excluir) para o rodape */
+div[class*="st-key-cat_card_"] > div[data-testid="stElementContainer"]:has(div.cat-q-spacer) {
+    flex: 1 1 auto !important;
+}
+div[class*="st-key-cat_card_"] > div[data-testid="stLayoutWrapper"]:last-child {
+    margin-top: auto;
+}
+.cat-q-titulo {
+    font-weight: 800; font-size: 1.0rem; line-height: 1.3;
+    color: var(--cor-texto) !important;
+}
+.cat-q-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; white-space: nowrap;
+    color: #065f46 !important; background: #d1fae5 !important;
+    border: 1px solid #a7f3d0;
+}
+.cat-q-texto {
+    margin: .55rem 0 .7rem 0; color: var(--cor-texto) !important; opacity: .95;
+    font-size: .86rem; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden; min-height: 3.9em;
+}
+.cat-q-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .85rem 0; }
+.cat-q-tag {
+    padding: 3px 10px; border-radius: 6px; font-size: .7rem; font-weight: 600;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: var(--fundo) !important; color: var(--cor-cinza) !important;
+    border: 1px solid var(--borda) !important;
+}
+div[class*="st-key-cat_ver_"] [data-testid="stPopoverButton"],
+div[class*="st-key-cat_ed_"] [data-testid="stPopoverButton"],
+div[class*="st-key-cat_del_"] [data-testid="stPopoverButton"] {
+    width: 100% !important; height: 34px !important; border-radius: 999px !important;
+    font-size: .78rem !important; font-weight: 600 !important;
+    border: 1.5px solid var(--borda) !important;
+    background: transparent !important; color: var(--cor-texto) !important;
+    box-shadow: none !important; transition: all .15s ease;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+div[class*="st-key-cat_ver_"] [data-testid="stPopoverButton"]:hover,
+div[class*="st-key-cat_ed_"] [data-testid="stPopoverButton"]:hover {
+    border-color: var(--cor-p) !important; color: var(--cor-p) !important;
+    background: rgba(0,0,0,.04) !important;
+}
+div[class*="st-key-cat_del_"] [data-testid="stPopoverButton"]:hover {
+    border-color: #dc2626 !important; color: #dc2626 !important;
+    background: rgba(220,38,38,.06) !important;
 }
 </style>
 """
@@ -5195,8 +5271,84 @@ def form_excluir_questao(id_q, uid="frm"):
     if c2.button("Cancelar", use_container_width=True, key=f"{uid}_cancelar"):
         st.rerun()
 
+def form_ver_questao(id_q, uid="frm"):
+    banco = carregar_banco()
+    q = next((item for item in banco if item.get("id") == id_q), None)
+    if not q:
+        st.info("Questao nao encontrada.")
+        return
+    st.markdown(f"**Tema / Descritor:** {q.get('tema', '') or '—'}")
+    st.markdown(f"**Dificuldade:** {q.get('dificuldade', '') or '—'}")
+    if (q.get("enunciado") or "").strip():
+        st.markdown("**Enunciado / Contexto:**")
+        st.write(q["enunciado"])
+    if q.get("imagem"):
+        caminho_img = caminho_usuario(q["imagem"])
+        if caminho_img and os.path.exists(caminho_img):
+            try:
+                st.image(caminho_img, width=220)
+            except Exception:
+                pass
+    st.markdown(f"**Pergunta:** {q.get('pergunta_direta', '') or '—'}")
+    alternativas = q.get("alternativas") or {}
+    if alternativas:
+        st.markdown("**Alternativas:**")
+        for letra in sorted(alternativas):
+            st.markdown(f"- **{letra})** {alternativas[letra]}")
+    st.markdown(f"**Gabarito:** {q.get('gabarito', '') or '—'}")
+
+
+def _render_cartao_questao(q):
+    qid = q.get("id", "")
+    dif = (q.get("dificuldade", "") or "").strip() or "Sem nivel"
+    titulo = f"Questão #{qid}"
+
+    c_titulo, c_badge = st.columns([3, 1], vertical_alignment="center")
+    c_titulo.markdown(f'<span class="cat-q-titulo">{html.escape(titulo)}</span>',
+                      unsafe_allow_html=True)
+    c_badge.markdown(f'<span class="cat-q-badge">{html.escape(dif)}</span>',
+                     unsafe_allow_html=True)
+
+    texto = (q.get("pergunta_direta") or q.get("enunciado") or "").strip()
+    if not texto:
+        texto = "(sem texto)"
+    if len(texto) > 160:
+        texto = texto[:160] + "..."
+    st.markdown(f'<p class="cat-q-texto">{html.escape(texto)}</p>',
+                unsafe_allow_html=True)
+
+    tags = []
+    tema = (q.get("tema") or "").strip()
+    if tema:
+        tags.append(tema)
+    if q.get("disciplina"):
+        tags.append(str(q["disciplina"]))
+    if q.get("alternativas"):
+        tags.append(f"{len(q['alternativas'])} alternativas")
+    elif q.get("gabarito") == "Discursiva":
+        tags.append("Discursiva")
+    if q.get("gabarito"):
+        tags.append(f"Gabarito: {q['gabarito']}")
+
+    if tags:
+        html_tags = "".join(
+            f'<span class="cat-q-tag">{html.escape(str(tag))}</span>' for tag in tags[:4])
+        st.markdown(f'<div class="cat-q-tags">{html_tags}</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="cat-q-spacer"></div>', unsafe_allow_html=True)
+
+    b1, b2, b3 = st.columns(3)
+    with b1.popover("Ver", key=f"cat_ver_{qid}", use_container_width=True):
+        form_ver_questao(qid, uid=f"cat_ver_{qid}")
+    with b2.popover("Editar", key=f"cat_ed_{qid}", use_container_width=True):
+        form_editar_questao(qid, uid=f"cat_ed_{qid}")
+    with b3.popover("Excluir", key=f"cat_del_{qid}", use_container_width=True):
+        form_excluir_questao(qid, uid=f"cat_del_{qid}")
+
+
 def tela_catalogo():
     st.markdown("### Catálogo de Questões")
+    st.caption("Visualização em cards (grade) — cada questão em um retângulo.")
     banco = carregar_banco()
     if not banco:
         st.info("O banco de questões está vazio! Cadastre ou importe questões.")
@@ -5218,21 +5370,20 @@ def tela_catalogo():
         questoes.append(q)
 
     st.caption(f"Mostrando {len(questoes)} questões")
-    for q in questoes:
-        with st.container(border=True):
-            rotulo = f"**📌 {q.get('tema', 'Sem tema')}** | Nivel: {q.get('dificuldade', '')} | ID: {q.get('id', '')}"
-            if q.get("disciplina"):
-                rotulo += f" | Disciplina: {q.get('disciplina')}"
-            st.markdown(rotulo)
-            perg = q.get("pergunta_direta", "")
-            if len(perg) > 130:
-                perg = perg[:130] + "..."
-            st.write(perg)
-            c1, c2 = st.columns([1, 1])
-            with c1.popover("Editar Rápido", key=f"cat_ed_pop_{q['id']}", use_container_width=True):
-                form_editar_questao(q["id"], uid=f"cat_ed_{q['id']}")
-            with c2.popover("Excluir", key=f"cat_del_pop_{q['id']}", use_container_width=True):
-                form_excluir_questao(q["id"], uid=f"cat_del_{q['id']}")
+    if not questoes:
+        st.info("Nenhuma questão encontrada com esses filtros.")
+        return
+
+    N_COLS = 3
+    for i in range(0, len(questoes), N_COLS):
+        colunas = st.columns(N_COLS)
+        for j in range(N_COLS):
+            indice = i + j
+            if indice >= len(questoes):
+                break
+            with colunas[j]:
+                with st.container(border=True, key=f"cat_card_{questoes[indice].get('id', '')}"):
+                    _render_cartao_questao(questoes[indice])
 
 # =====================================================================
 # 19. TELA: GERAR ATIVIDADES (WORD)
