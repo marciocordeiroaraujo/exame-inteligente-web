@@ -964,7 +964,7 @@ header[data-testid="stHeader"] {
     border-bottom: 1px solid transparent;
 }
 [data-testid="stDecoration"] {display: none !important;}
-.block-container {padding-top: 0.8rem; padding-bottom: 2.5rem; max-width: 1440px;}
+.block-container {padding: 0.8rem 1.5rem 2.5rem; max-width: 100%;}
 h1, h2, h3, h4, h5 {color: var(--cor-texto) !important; letter-spacing: -0.01em;}
 p, label, .stMarkdown, .stTextInput input, .stTextArea textarea,
 .stSelectbox div[data-baseweb="select"] > div,
