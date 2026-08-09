@@ -2422,16 +2422,21 @@ def gerar_documento_word(questoes_selecionadas, config, incluir_gabarito,
             p_pergunta.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p_pergunta.add_run(q['pergunta_direta']).bold = True
 
-        alternativas = q.get('alternativas', {})
+        alternativas = q.get('alternativas', [])
         if len(alternativas) > 0:
-            alts_keys = list(alternativas.keys())
+            if isinstance(alternativas, dict):
+                alts_keys = list(alternativas.keys())
+            else:
+                alts_keys = [chr(65 + i) for i in range(len(alternativas))]
             if modo_acessibilidade:
                 for letra in alts_keys:
-                    p_alt = doc.add_paragraph(f"{letra}) {alternativas[letra]}")
+                    texto_alt = alternativas[letra] if isinstance(alternativas, dict) else alternativas[ord(letra) - 65]
+                    p_alt = doc.add_paragraph(f"{letra}) {texto_alt}")
                     p_alt.alignment = WD_ALIGN_PARAGRAPH.LEFT
             else:
                 for letra in alts_keys:
-                    p_alt = doc.add_paragraph(f"{letra}) {alternativas[letra]}")
+                    texto_alt = alternativas[letra] if isinstance(alternativas, dict) else alternativas[ord(letra) - 65]
+                    p_alt = doc.add_paragraph(f"{letra}) {texto_alt}")
                     p_alt.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                     p_alt.paragraph_format.left_indent = Inches(0.2)
             doc.add_paragraph()
@@ -4786,6 +4791,79 @@ MODELO_OPENAI = "gpt-4o-mini"
 # 16. TELA: CADASTRAR NOVA QUESTAO
 # =====================================================================
 def tela_cadastrar():
+    st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* ---- Criar Questao: Design System (Poppins + cores da marca) ---- */
+[data-testid="stMainBlockContainer"] {
+    font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Banner do topo: "Gerar Questao Completa com IA" */
+.cq-header {
+    font-family: 'Poppins', system-ui, sans-serif;
+    background: linear-gradient(90deg, var(--cor-p) 0%, var(--cor-pd) 100%);
+    color: var(--btn-fg) !important;
+    border-radius: 14px;
+    padding: 1.05rem 1.25rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: .2px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.12);
+    margin: .1rem 0 .9rem 0;
+}
+
+/* Cards das secoes (borda suave, tom do tema) */
+div[class*="st-key-cq_card_"] {
+    background: var(--card-bg) !important;
+    border: 2px solid var(--borda) !important;
+    border: 2px solid color-mix(in srgb, var(--cor-p) 32%, var(--card-bg)) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 10px rgba(0,0,0,.05) !important;
+    padding: 1.15rem 1.3rem 1.3rem !important;
+    height: 100%;
+}
+div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-cq_card_"]) {
+    height: 100% !important;
+}
+
+/* Titulo das secoes (barra vertical + texto) */
+.cq-sec { display: flex; align-items: center; gap: .55rem; margin: .1rem 0 1.05rem 0; }
+.cq-sec .cq-sec-bar { width: 6px; height: 24px; border-radius: 3px; background: var(--cor-p); flex: none; }
+.cq-sec .cq-sec-txt {
+    font-family: 'Poppins', system-ui, sans-serif;
+    font-weight: 700; font-size: 1.08rem; color: var(--cor-texto);
+}
+
+/* Painel expansivel: Mapeamento de Distratores */
+div[class*="st-key-cq_card_2"] [data-testid="stExpander"] {
+    border: 1px solid color-mix(in srgb, var(--cor-p) 30%, var(--card-bg)) !important;
+    border-radius: 10px !important;
+    background: color-mix(in srgb, var(--cor-p) 5%, var(--card-bg)) !important;
+}
+div[class*="st-key-cq_card_2"] [data-testid="stExpander"] summary { color: var(--cor-p) !important; }
+
+/* Nivel de dificuldade como pildulas (Facil / Medio / Dificil) */
+div[class*="st-key-cq_card_3"] div[role="radiogroup"] { gap: .55rem !important; }
+div[class*="st-key-cq_card_3"] label[data-baseweb="radio"] {
+    border: 1.5px solid var(--borda) !important;
+    border-radius: 10px !important;
+    padding: .5rem 1rem !important;
+    background: var(--fundo) !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+div[class*="st-key-cq_card_3"] label[data-baseweb="radio"] > div:first-child { display: none !important; }
+div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
+    background: var(--cor-p) !important;
+    color: var(--btn-fg) !important;
+    border-color: var(--cor-p) !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,.15);
+}
+</style>""", unsafe_allow_html=True)
+
     modo_ia = st.session_state.get("cad_modo_ia", False)
 
     c_modo1, c_modo2 = st.columns(2)
@@ -4816,30 +4894,80 @@ def tela_cadastrar():
         else:
             st.error(info_cad[1])
 
+    st.markdown(
+        '<div class="cq-header"><span aria-hidden="true">\u2728</span>&nbsp;'
+        'Gerar Questão Completa com IA&nbsp;'
+        '<span aria-hidden="true">\u2728</span></div>',
+        unsafe_allow_html=True)
+
     with st.form("form_nova_questao"):
-        enunciado = st.text_area("1. Enunciado / Texto de Contexto Inicial:", height=110,
-                                 placeholder="Cole aqui o texto de contexto da questao...")
-        imagem = st.file_uploader("2. Imagem de Apoio (Opcional):",
-                                  type=["png", "jpg", "jpeg", "bmp", "webp"], key="img_nova_questao")
-        pergunta = st.text_area("3. Pergunta Direta / Comando:", height=70,
-                                placeholder="Ex: Qual e o valor de x?")
+        c_esq, c_dir = st.columns([5, 7], gap="large")
 
-        st.markdown("**4. Alternativas (deixe em branco se for discursiva):**")
-        c_alt = st.columns(2)
-        alt_a = c_alt[0].text_input("A)", placeholder="Texto da alternativa A")
-        alt_b = c_alt[1].text_input("B)", placeholder="Texto da alternativa B")
-        alt_c = c_alt[0].text_input("C)", placeholder="Texto da alternativa C")
-        alt_d = c_alt[1].text_input("D)", placeholder="Texto da alternativa D")
+        with c_esq:
+            with st.container(border=True, key="cq_card_1"):
+                st.markdown(
+                    '<div class="cq-sec"><span class="cq-sec-bar"></span>'
+                    '<span class="cq-sec-txt">1. Contexto Inicial e Imagem</span></div>',
+                    unsafe_allow_html=True)
+                enunciado = st.text_area(
+                    "Enunciado / Texto de Contexto Inicial:", height=200,
+                    placeholder="Cole aqui o texto de contexto da questao...")
+                imagem = st.file_uploader(
+                    "Imagem de Apoio (Opcional):",
+                    type=["png", "jpg", "jpeg", "bmp", "webp"], key="img_nova_questao")
 
-        c2 = st.columns(3)
-        gabarito = c2[0].selectbox("5. Gabarito Correto:", ["A", "B", "C", "D", "Discursiva"])
-        dificuldade = c2[1].selectbox("6. Nivel de Dificuldade:", ["Facil", "Medio", "Dificil"])
-        tema = c2[2].text_input("7. Tema / Descritor SAEB:",
-                                placeholder="Ex: D15 - Resolver problema...")
-        salvar = st.form_submit_button("Salvar Questão", type="primary",
-                                       use_container_width=True)
+        with c_dir:
+            with st.container(border=True, key="cq_card_2"):
+                st.markdown(
+                    '<div class="cq-sec"><span class="cq-sec-bar"></span>'
+                    '<span class="cq-sec-txt">2. Pergunta e Alternativas</span></div>',
+                    unsafe_allow_html=True)
+                pergunta = st.text_input(
+                    "Pergunta Direta / Comando:",
+                    placeholder="Ex: Qual e o valor de x?")
+                st.markdown("**Alternativas (deixe em branco se for discursiva):**")
+                c_alt = st.columns(2)
+                alt_a = c_alt[0].text_input("A)", placeholder="Texto da alternativa A")
+                alt_b = c_alt[1].text_input("B)", placeholder="Texto da alternativa B")
+                alt_c = c_alt[0].text_input("C)", placeholder="Texto da alternativa C")
+                alt_d = c_alt[1].text_input("D)", placeholder="Texto da alternativa D")
+
+                with st.expander("\u2699\ufe0f Opções Avançadas: Mapeamento de Distratores"):
+                    st.caption("Indique a lacuna de aprendizagem (motivo do erro) para cada "
+                               "alternativa incorreta. Isso alimentará as estatísticas da turma.")
+                    c_d = st.columns(2)
+                    dist_b = c_d[0].text_input("B)",
+                                               placeholder="Ex: Erro de regra de sinais...")
+                    dist_c = c_d[1].text_input("C)",
+                                               placeholder="Ex: Falha na interpretação de texto...")
+                    dist_d = c_d[0].text_input("D)",
+                                               placeholder="Ex: Confusão com fórmula base...")
+
+            with st.container(border=True, key="cq_card_3"):
+                st.markdown(
+                    '<div class="cq-sec"><span class="cq-sec-bar"></span>'
+                    '<span class="cq-sec-txt">3. Metadados e Gabarito</span></div>',
+                    unsafe_allow_html=True)
+                c3 = st.columns(3)
+                gabarito = c3[0].selectbox(
+                    "Gabarito Correto:", ["A", "B", "C", "D", "Discursiva"])
+                dificuldade = c3[1].radio(
+                    "Nível de Dificuldade:", ["Fácil", "Médio", "Difícil"], horizontal=True)
+                tema = c3[2].text_input(
+                    "Tema / Descritor SAEB:", placeholder="Ex: D15 - Resolver problema...")
+
+        c_f = st.columns([1, 2])
+        voltar = c_f[0].form_submit_button("Voltar", use_container_width=True)
+        salvar = c_f[1].form_submit_button("Salvar Questão", type="primary",
+                                           use_container_width=True)
+
+    if voltar:
+        st.session_state["cad_limpar_img"] = True
+        st.rerun()
 
     if salvar:
+        mapa_dif = {"Fácil": "Facil", "Médio": "Medio", "Difícil": "Dificil"}
+        dificuldade_interna = mapa_dif.get(dificuldade, "Medio")
         if not enunciado.strip() or not pergunta.strip() or not tema.strip():
             st.error("Por favor, preencha o Enunciado, a Pergunta e o Tema!")
         else:
@@ -4847,6 +4975,11 @@ def tela_cadastrar():
             for letra, texto in [("A", alt_a), ("B", alt_b), ("C", alt_c), ("D", alt_d)]:
                 if texto.strip():
                     alternativas[letra] = texto.strip()
+
+            distratores = {}
+            for letra, texto in [("B", dist_b), ("C", dist_c), ("D", dist_d)]:
+                if texto.strip() and letra != gabarito:
+                    distratores[letra] = texto.strip()
 
             novo_id = max([q.get("id", 0) for q in banco], default=0) + 1
             caminho_final_img = ""
@@ -4857,12 +4990,13 @@ def tela_cadastrar():
             banco.append({
                 "id": novo_id,
                 "tema": tema.strip(),
-                "dificuldade": dificuldade,
+                "dificuldade": dificuldade_interna,
                 "enunciado": enunciado.strip(),
                 "imagem": caminho_final_img,
                 "pergunta_direta": pergunta.strip(),
                 "alternativas": alternativas,
-                "gabarito": gabarito
+                "gabarito": gabarito,
+                "distratores": distratores
             })
             salvar_banco(banco)
             st.session_state["cad_limpar_img"] = True
@@ -5326,12 +5460,23 @@ def form_ver_questao(id_q, uid="frm"):
             except Exception:
                 pass
     st.markdown(f"**Pergunta:** {q.get('pergunta_direta', '') or '—'}")
-    alternativas = q.get("alternativas") or {}
-    if alternativas:
+    alternativas = q.get("alternativas") or []
+    pares_alt = []
+    if isinstance(alternativas, dict):
+        pares_alt = [(letra, alternativas[letra]) for letra in sorted(alternativas)]
+    else:
+        pares_alt = [(chr(65 + i), texto) for i, texto in enumerate(alternativas)]
+    if pares_alt:
         st.markdown("**Alternativas:**")
-        for letra in sorted(alternativas):
-            st.markdown(f"- **{letra})** {alternativas[letra]}")
+        for letra, texto in pares_alt:
+            st.markdown(f"- **{letra})** {texto}")
     st.markdown(f"**Gabarito:** {q.get('gabarito', '') or '—'}")
+    distratores = q.get("distratores") or {}
+    if distratores:
+        st.markdown("**Distratores (lacunas de aprendizagem):**")
+        for letra in sorted(distratores):
+            if str(distratores[letra]).strip():
+                st.markdown(f"- **{letra})** {distratores[letra]}")
 
 
 def _render_cartao_questao(q):
