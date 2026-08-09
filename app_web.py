@@ -1065,19 +1065,23 @@ section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] {
     box-shadow: 0 4px 14px rgba(0,0,0,.16); transform: translateY(-1px);
 }
 .stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"],
-.stFormSubmitButton > button[kind="primary"] {
+.stFormSubmitButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primaryFormSubmit"] {
     background: linear-gradient(180deg, var(--cor-p) 0%, var(--cor-pd) 100%);
     color: var(--btn-fg); border: 1px solid @@CORP_EDGE@@;
 }
 .stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover,
-.stFormSubmitButton > button[kind="primary"]:hover {
+.stFormSubmitButton > button[kind="primary"]:hover,
+.stFormSubmitButton > button[kind="primaryFormSubmit"]:hover {
     background: linear-gradient(180deg, var(--cor-ph) 0%, var(--cor-pd) 100%);
     box-shadow: 0 6px 18px @@CORP_SHADOW@@;
 }
-.stButton > button[kind="secondary"] {
+.stButton > button[kind="secondary"],
+.stFormSubmitButton > button[kind="secondaryFormSubmit"] {
     background: var(--card-bg); color: var(--cor-texto); border: 1px solid var(--borda);
 }
-.stButton > button[kind="secondary"]:hover {background: @@CORS_SOFT@@;}
+.stButton > button[kind="secondary"]:hover,
+.stFormSubmitButton > button[kind="secondaryFormSubmit"]:hover {background: @@CORS_SOFT@@;}
 .stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
 .stFormSubmitButton > button:focus-visible {outline: 3px solid @@CORP_SOFT@@; outline-offset: 1px;}
 
@@ -4799,28 +4803,26 @@ def tela_cadastrar():
     font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
 }
 
-/* Banner-botao do topo: "Gerar Questao Completa com IA" (atalho p/ Criar com IA) */
-div[class*="st-key-cq_ia_at"] button {
+/* Botao pequeno "Gerar com IA" (atalho p/ Criar com IA), similar ao Central de Planos */
+div[class*="st-key-cq_ia_at"] button[kind="secondary"] {
     font-family: 'Poppins', system-ui, sans-serif;
-    background: linear-gradient(90deg, var(--cor-p) 0%, var(--cor-pd) 100%) !important;
-    color: var(--btn-fg) !important;
-    border: 1px solid var(--cor-pd) !important;
-    border-radius: 14px !important;
-    padding: .95rem 1.25rem !important;
-    height: auto !important;
-    line-height: 1.35 !important;
-    text-align: center !important;
+    background: var(--card-bg) !important;
+    color: var(--cor-p) !important;
+    border: 1.5px solid color-mix(in srgb, var(--cor-p) 45%, var(--card-bg)) !important;
+    border-radius: 10px !important;
+    height: 40px !important;
     font-weight: 700 !important;
-    font-size: 1.2rem !important;
-    letter-spacing: .2px !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,.12) !important;
-    margin: .1rem 0 .9rem 0 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08) !important;
     transition: all .18s ease !important;
 }
-div[class*="st-key-cq_ia_at"] button:hover {
-    filter: brightness(1.06) !important;
-    box-shadow: 0 8px 22px rgba(0,0,0,.2) !important;
-    transform: translateY(-1px);
+div[class*="st-key-cq_ia_at"] button[kind="secondary"]:hover {
+    background: color-mix(in srgb, var(--cor-p) 10%, var(--card-bg)) !important;
+    color: var(--cor-p) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14) !important;
+}
+.cq-sub {
+    font-family: 'Poppins', system-ui, sans-serif;
+    color: var(--cor-texto); font-size: .92rem; margin: .35rem 0;
 }
 
 /* Cards das secoes (borda suave, tom do tema) */
@@ -4838,6 +4840,10 @@ div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-cq_card_"]) {
 }
 /* Mais ar entre o card 2 (Pergunta/Alternativas) e o card 3 (Metadados) */
 div[class*="st-key-cq_card_2"] { margin-bottom: 2.2rem !important; }
+/* Margem minima entre os cards e os botoes Voltar / Salvar */
+[data-testid="stHorizontalBlock"]:has(div[class*="st-key-cq_card_1"]) {
+    margin-bottom: 1.75rem !important;
+}
 /* Preenche a altura util da pagina (apenas em telas altas) */
 @media (min-height: 800px) {
     [data-testid="stHorizontalBlock"]:has(div[class*="st-key-cq_card_1"]) {
@@ -4879,6 +4885,28 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
     border-color: var(--cor-p) !important;
     box-shadow: 0 3px 10px rgba(0,0,0,.15);
 }
+
+/* Botoes do rodape: Voltar (tom suave da marca) e Salvar Questao (gradiente da marca) */
+div[class*="st-key-cq_voltar"] button[kind="secondaryFormSubmit"] {
+    background: color-mix(in srgb, var(--cor-p) 10%, var(--card-bg)) !important;
+    color: var(--cor-p) !important;
+    border: 1.5px solid color-mix(in srgb, var(--cor-p) 45%, var(--card-bg)) !important;
+    font-weight: 700 !important;
+}
+div[class*="st-key-cq_voltar"] button[kind="secondaryFormSubmit"]:hover {
+    background: color-mix(in srgb, var(--cor-p) 18%, var(--card-bg)) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12) !important;
+}
+div[class*="st-key-cq_salvar"] button[kind="primaryFormSubmit"] {
+    background: linear-gradient(90deg, var(--cor-p) 0%, var(--cor-pd) 100%) !important;
+    border: 1px solid var(--cor-pd) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.16) !important;
+    font-weight: 700 !important;
+}
+div[class*="st-key-cq_salvar"] button[kind="primaryFormSubmit"]:hover {
+    background: linear-gradient(90deg, var(--cor-ph) 0%, var(--cor-pd) 100%) !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22) !important;
+}
 </style>""", unsafe_allow_html=True)
 
     modo_ia = st.session_state.get("cad_modo_ia", False)
@@ -4903,9 +4931,14 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
         else:
             st.error(info_cad[1])
 
-    if st.button("\u2728 Gerar Quest\u00e3o Completa com IA \u2728",
-                 use_container_width=True, key="cq_ia_at",
-                 help="Atalho para o gerador de questões com IA"):
+    c_topo = st.columns([3.4, 1], vertical_alignment="center")
+    c_topo[0].markdown(
+        '<div class="cq-sub">Preencha os campos abaixo para cadastrar uma '
+        'quest\u00e3o manualmente ou clique em <b>Gerar com IA</b> para criar '
+        'automaticamente.</div>', unsafe_allow_html=True)
+    if c_topo[1].button("\u2728 Gerar com IA", use_container_width=True,
+                        key="cq_ia_at",
+                        help="Atalho para o gerador de questões com IA"):
         st.session_state["cad_modo_ia"] = True
         st.rerun()
 
@@ -4966,9 +4999,10 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
                     "Tema / Descritor SAEB:", placeholder="Ex: D15 - Resolver problema...")
 
         c_f = st.columns([1, 2])
-        voltar = c_f[0].form_submit_button("Voltar", use_container_width=True)
+        voltar = c_f[0].form_submit_button("Voltar", use_container_width=True,
+                                           key="cq_voltar")
         salvar = c_f[1].form_submit_button("Salvar Questão", type="primary",
-                                           use_container_width=True)
+                                           use_container_width=True, key="cq_salvar")
 
     if voltar:
         st.session_state["cad_limpar_img"] = True
