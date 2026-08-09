@@ -4799,19 +4799,28 @@ def tela_cadastrar():
     font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
 }
 
-/* Banner do topo: "Gerar Questao Completa com IA" */
-.cq-header {
+/* Banner-botao do topo: "Gerar Questao Completa com IA" (atalho p/ Criar com IA) */
+div[class*="st-key-cq_ia_at"] button {
     font-family: 'Poppins', system-ui, sans-serif;
-    background: linear-gradient(90deg, var(--cor-p) 0%, var(--cor-pd) 100%);
+    background: linear-gradient(90deg, var(--cor-p) 0%, var(--cor-pd) 100%) !important;
     color: var(--btn-fg) !important;
-    border-radius: 14px;
-    padding: 1.05rem 1.25rem;
-    text-align: center;
-    font-weight: 700;
-    font-size: 1.2rem;
-    letter-spacing: .2px;
-    box-shadow: 0 6px 16px rgba(0,0,0,.12);
-    margin: .1rem 0 .9rem 0;
+    border: 1px solid var(--cor-pd) !important;
+    border-radius: 14px !important;
+    padding: .95rem 1.25rem !important;
+    height: auto !important;
+    line-height: 1.35 !important;
+    text-align: center !important;
+    font-weight: 700 !important;
+    font-size: 1.2rem !important;
+    letter-spacing: .2px !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,.12) !important;
+    margin: .1rem 0 .9rem 0 !important;
+    transition: all .18s ease !important;
+}
+div[class*="st-key-cq_ia_at"] button:hover {
+    filter: brightness(1.06) !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,.2) !important;
+    transform: translateY(-1px);
 }
 
 /* Cards das secoes (borda suave, tom do tema) */
@@ -4866,20 +4875,12 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
 
     modo_ia = st.session_state.get("cad_modo_ia", False)
 
-    c_modo1, c_modo2 = st.columns(2)
-    if c_modo1.button("\u270e Criar Questão",
-                      type="primary" if not modo_ia else "secondary",
-                      use_container_width=True, key="cad_modo_manual"):
-        st.session_state["cad_modo_ia"] = False
-        st.rerun()
-    if c_modo2.button("\u2728 Criar Com IA",
-                      type="primary" if modo_ia else "secondary",
-                      use_container_width=True, key="cad_modo_ia_btn"):
-        st.session_state["cad_modo_ia"] = True
-        st.rerun()
-    st.markdown("---")
-
     if modo_ia:
+        if st.button("\u2190 Voltar ao formul\u00e1rio de cria\u00e7\u00e3o manual",
+                     use_container_width=True, key="cad_modo_manual"):
+            st.session_state["cad_modo_ia"] = False
+            st.rerun()
+        st.markdown("---")
         tela_importar(integrada=True)
         return
 
@@ -4894,11 +4895,11 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
         else:
             st.error(info_cad[1])
 
-    st.markdown(
-        '<div class="cq-header"><span aria-hidden="true">\u2728</span>&nbsp;'
-        'Gerar Questão Completa com IA&nbsp;'
-        '<span aria-hidden="true">\u2728</span></div>',
-        unsafe_allow_html=True)
+    if st.button("\u2728 Gerar Quest\u00e3o Completa com IA \u2728",
+                 use_container_width=True, key="cq_ia_at",
+                 help="Atalho para o gerador de questões com IA"):
+        st.session_state["cad_modo_ia"] = True
+        st.rerun()
 
     with st.form("form_nova_questao"):
         c_esq, c_dir = st.columns([5, 7], gap="large")
@@ -5398,6 +5399,7 @@ def tela_central_questoes():
                  type="primary" if aba == "criar" else "secondary",
                  use_container_width=True):
         st.session_state["cq_aba"] = "criar"
+        st.session_state["cad_modo_ia"] = False
         st.rerun()
     if c2.button("\u2630 Catálogo de Questões", key="cq_tab_catalogo",
                  type="primary" if aba == "catalogo" else "secondary",
