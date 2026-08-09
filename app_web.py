@@ -1246,20 +1246,18 @@ div[class*="st-key-aluno_"] button:hover {
     div[class*="st-key-dash_wrap"] {
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto;
         grid-template-areas:
             "mural  cal"
-            "mural  agenda"
             "grade  grade";
         gap: 12px;
         align-items: stretch;
-        min-height: calc(100vh - 235px);
+        min-height: calc(100vh - 340px);
     }
     div[class*="st-key-dash_wrap"] > div { min-width: 0; }
     div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_mural)  { grid-area: mural; }
     div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_grade)  { grid-area: grade; }
     div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_cal)    { grid-area: cal; }
-    div[class*="st-key-dash_wrap"] > div:has(> div.stVerticalBlock.st-key-card_dash_agenda) { grid-area: agenda; }
     div[class*="st-key-dash_wrap"] > div > div.stVerticalBlock { height: 100%; }
     div[class*="st-key-dash_wrap"] div[class*="st-key-card_"] { margin-bottom: 0 !important; }
 }
@@ -3603,15 +3601,12 @@ def fragmento_dashboard():
                 st.session_state["dash_dia"] = novo_dia
                 dia_selecionada = novo_dia
 
-        with st.container(key="card_dash_grade"):
-            st.markdown(
-                f'<div class="card-titulo">Aulas do Dia: {dia_selecionada}</div>',
-                unsafe_allow_html=True)
-            st.markdown(html_aulas_dia(grade, dia_selecionada), unsafe_allow_html=True)
-
         with st.container(key="card_dash_mural"):
             topo = st.columns([3, 1])
-            topo[0].markdown('<div class="card-titulo">Lembretes</div>', unsafe_allow_html=True)
+            topo[0].markdown(
+                '<div class="dash-sec"><span class="dash-sec-bar"></span>'
+                '<span class="dash-sec-txt">Lembretes</span></div>',
+                unsafe_allow_html=True)
             with topo[1].popover("+ Novo", key="dash_novo_pop", use_container_width=True):
                 form_postit(None, uid="dash_novo")
             if not anotacoes:
@@ -3639,25 +3634,29 @@ def fragmento_dashboard():
                             salvar_anotacoes(anotacoes)
                             st.rerun()
 
-        with st.container(key="card_dash_agenda"):
+        with st.container(key="card_dash_grade"):
             st.markdown(
-                f'<div class="card-titulo">Agenda: {dia_selecionada}</div>',
+                '<div class="dash-sec"><span class="dash-sec-bar"></span>'
+                '<span class="dash-sec-txt">Minha Agenda</span></div>',
+                unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="dash-sec-sub">Aulas programadas para o dia '
+                f'{esc(dia_selecionada)}:</div>',
                 unsafe_allow_html=True)
             planos_dia = planos.get(dia_selecionada, [])
             if planos_dia:
                 for i, plano in enumerate(planos_dia):
                     st.markdown(
-                        f'<div class="dash-item">'
-                        f'<div class="dash-item-titulo">'
-                        f'{plano.get("horario","")} | {plano.get("turma","")}</div>'
-                        f'<div class="dash-item-sub">'
-                        f'{plano.get("disciplina","Geral")} - {plano.get("tema","Sem tema")}</div></div>',
+                        f'<div class="dash-tl-item">'
+                        f'<div class="dash-tl-hora">\U0001f550 {esc(plano.get("horario",""))}</div>'
+                        f'<div class="dash-tl-txt">{esc(plano.get("turma",""))} — '
+                        f'{esc(plano.get("disciplina","Geral"))}</div>'
+                        f'<div class="dash-tl-sub">{esc(plano.get("tema","Sem tema"))}</div></div>',
                         unsafe_allow_html=True)
                     with st.popover("Visualizar / Editar", key=f"dash_plano_pop_{dia_selecionada}_{i}",
                                     use_container_width=True):
                         form_plano(dia_selecionada, i, uid=f"dash_plano_{dia_selecionada}_{i}")
-            else:
-                st.caption("Nenhuma aula registrada neste dia.")
+            st.markdown(html_aulas_dia(grade, dia_selecionada), unsafe_allow_html=True)
 
 def tela_dashboard(config):
     hoje = datetime.now()
@@ -3676,9 +3675,79 @@ def tela_dashboard(config):
     if "dash_cal" not in st.session_state:
         st.session_state["dash_cal"] = hoje.strftime("%m/%Y")
 
+    st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* Dashboard Inicial: Design System (Poppins + cores da marca) */
+.dash-hello {
+    font-family: 'Poppins', system-ui, sans-serif;
+    font-weight: 700; font-size: 1.85rem; letter-spacing: -0.01em;
+    color: var(--cor-p); display: flex; align-items: center; gap: .5rem;
+}
+.dash-data { color: var(--cor-cinza); font-size: .92rem; margin: .1rem 0 1.1rem 0; }
+
+.dash-resumo {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px; margin-bottom: 16px;
+}
+.dash-resumo-card {
+    font-family: 'Poppins', system-ui, sans-serif;
+    border-radius: 14px; padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(100deg, var(--cor-p) 0%, var(--cor-pd) 100%);
+    color: var(--btn-fg);
+    box-shadow: 0 6px 16px rgba(0,0,0,.12);
+}
+.dash-resumo-icone { font-size: 1.5rem; opacity: .92; }
+.dash-resumo-rotulo { font-size: .95rem; font-weight: 500; opacity: .92; }
+.dash-resumo-valor { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+
+/* Titulos dos paineis do Dashboard */
+.dash-sec { display: flex; align-items: center; gap: .5rem; margin: .2rem 0 .9rem 0; }
+.dash-sec-bar { width: 5px; height: 20px; border-radius: 3px; background: var(--cor-p); flex: none; }
+.dash-sec-txt { font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; font-size: 1.02rem; color: var(--cor-texto); }
+.dash-sec-sub { font-size: .82rem; color: var(--cor-cinza); margin: -.5rem 0 .85rem 0; }
+
+/* Minha Agenda: linha do tempo */
+.dash-tl-item {
+    background: var(--card-bg); border: 1px solid var(--borda);
+    border-left: 4px solid var(--cor-p); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    transition: box-shadow .18s ease, transform .18s ease;
+}
+.dash-tl-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); }
+.dash-tl-hora { font-weight: 700; font-size: .85rem; color: var(--cor-p); }
+.dash-tl-txt { font-size: .9rem; font-weight: 600; color: var(--cor-texto); }
+.dash-tl-sub { font-size: .78rem; color: var(--cor-cinza); }
+</style>""", unsafe_allow_html=True)
+
+    nome_prof = primeiro_nome_professor(config)
     st.markdown(
-        f"## Ola, {primeiro_nome_professor(config)}! :wave:")
-    st.caption(f"Hoje e {hoje.strftime('%d/%m/%Y')}")
+        f'<div class="dash-hello">Olá, {esc(nome_prof)}! '
+        f'<span aria-hidden="true">\U0001f44b</span></div>',
+        unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="dash-data">Hoje é {hoje.strftime("%d/%m/%Y")}</div>',
+        unsafe_allow_html=True)
+
+    grade = carregar_grade()
+    anotacoes = carregar_anotacoes()
+    try:
+        nome_dia_hoje = DIAS_COMPLETOS[hoje.weekday()]
+    except Exception:
+        nome_dia_hoje = ""
+    n_aulas = len([i for i in grade if i.get("dia") == nome_dia_hoje])
+    n_lem = len(anotacoes)
+    st.markdown(
+        '<div class="dash-resumo">'
+        '<div class="dash-resumo-card"><span class="dash-resumo-icone">\U0001f4da</span>'
+        '<div><div class="dash-resumo-rotulo">Aulas Hoje</div>'
+        f'<div class="dash-resumo-valor">{n_aulas}</div></div></div>'
+        '<div class="dash-resumo-card"><span class="dash-resumo-icone">\U0001f4cb</span>'
+        '<div><div class="dash-resumo-rotulo">Lembretes do Dia</div>'
+        f'<div class="dash-resumo-valor">{n_lem}</div></div></div>'
+        '</div>', unsafe_allow_html=True)
 
     fragmento_dashboard()
 
