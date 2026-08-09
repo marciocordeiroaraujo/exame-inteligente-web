@@ -4786,7 +4786,6 @@ MODELO_OPENAI = "gpt-4o-mini"
 # 16. TELA: CADASTRAR NOVA QUESTAO
 # =====================================================================
 def tela_cadastrar():
-    st.markdown("### Criar Questão")
     modo_ia = st.session_state.get("cad_modo_ia", False)
 
     c_modo1, c_modo2 = st.columns(2)
@@ -5110,7 +5109,6 @@ def tela_importar(integrada=False):
     if pendente:
         st.session_state["ia_tema"] = pendente
     if integrada:
-        st.markdown("### Criar Questões com IA")
         st.caption("A IA gera as questões usando a **sua própria chave de API** (Gemini ou ChatGPT), "
                    "configurada em **Configurações > Chave de API**. "
                    "Depois de geradas, você revisa e importa para o catálogo.")
@@ -5250,6 +5248,13 @@ def tela_importar(integrada=False):
 # 17.1 TELA UNIFICADA: CENTRAL DE QUESTOES
 # =====================================================================
 def tela_central_questoes():
+    st.markdown("""<style>
+/* Central de Questoes: titulo e conteudo colados ao topo da pagina */
+[data-testid="stMain"] .block-container {padding-top: 0.15rem !important;}
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] {gap: 0.15rem !important;}
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has([data-testid="stIFrame"]) {display: none !important;}
+[data-testid="stMainBlockContainer"] h2 {padding-top: 0 !important;}
+</style>""", unsafe_allow_html=True)
     st.markdown("## Central de Questões")
     aba = st.session_state.get("cq_aba", "criar")
     if aba == "importar":
@@ -5378,8 +5383,6 @@ def _render_cartao_questao(q):
 
 
 def tela_catalogo():
-    st.markdown("### Catálogo de Questões")
-    st.caption("Visualização em cards (grade) — cada questão em um retângulo.")
     banco = carregar_banco()
     if not banco:
         st.info("O banco de questões está vazio! Cadastre ou importe questões.")
