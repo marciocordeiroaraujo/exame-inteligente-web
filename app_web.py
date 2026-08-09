@@ -5252,26 +5252,21 @@ def tela_importar(integrada=False):
 def tela_central_questoes():
     st.markdown("## Central de Questões")
     aba = st.session_state.get("cq_aba", "criar")
-    c1, c2, c3 = st.columns(3)
+    if aba == "importar":
+        aba = "criar"
+    c1, c2 = st.columns(2)
     if c1.button("\uff0b Criar Questão", key="cq_tab_criar",
                  type="primary" if aba == "criar" else "secondary",
                  use_container_width=True):
         st.session_state["cq_aba"] = "criar"
         st.rerun()
-    if c2.button("\u2913 Importar com IA", key="cq_tab_importar",
-                 type="primary" if aba == "importar" else "secondary",
-                 use_container_width=True):
-        st.session_state["cq_aba"] = "importar"
-        st.rerun()
-    if c3.button("\u2630 Catálogo de Questões", key="cq_tab_catalogo",
+    if c2.button("\u2630 Catálogo de Questões", key="cq_tab_catalogo",
                  type="primary" if aba == "catalogo" else "secondary",
                  use_container_width=True):
         st.session_state["cq_aba"] = "catalogo"
         st.rerun()
     st.markdown("---")
-    if aba == "importar":
-        tela_importar()
-    elif aba == "catalogo":
+    if aba == "catalogo":
         tela_catalogo()
     else:
         tela_cadastrar()
@@ -5787,9 +5782,6 @@ def main():
         tela_central_questoes()
     elif pagina == "Cadastrar Questão":
         st.session_state["cq_aba"] = "criar"
-        tela_central_questoes()
-    elif pagina == "Importar IA":
-        st.session_state["cq_aba"] = "importar"
         tela_central_questoes()
     elif pagina == "Catálogo de Questões":
         st.session_state["cq_aba"] = "catalogo"
