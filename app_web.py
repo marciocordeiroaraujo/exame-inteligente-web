@@ -1667,6 +1667,17 @@ hr {margin: .7rem 0; border-color: var(--borda);}
     .cal-scroll .cal-table {min-width: 460px;}
 }
 
+/* ---------------- Toggle Criar Questao x Criar Com IA ---------------- */
+div[class*="st-key-cad_modo_"] button {
+    border-radius: 12px !important; font-weight: 800 !important;
+    height: 44px; transition: all .18s ease;
+}
+div[class*="st-key-cad_modo_ia"] button[kind="primary"] {
+    background: linear-gradient(135deg, var(--cor-p) 0%, var(--cor-pd) 100%) !important;
+    border: 1px solid var(--cor-pd) !important; color: var(--btn-fg) !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,.18) !important;
+}
+
 /* =====================================================================
    CATALOGO DE QUESTOES: cards em grade (modelo "retangulos")
    Adaptado do mockup Central de Questoes (Tailwind -> Streamlit).
@@ -4776,6 +4787,25 @@ MODELO_OPENAI = "gpt-4o-mini"
 # =====================================================================
 def tela_cadastrar():
     st.markdown("### Criar Questão")
+    modo_ia = st.session_state.get("cad_modo_ia", False)
+
+    c_modo1, c_modo2 = st.columns(2)
+    if c_modo1.button("\u270e Criar Questão",
+                      type="primary" if not modo_ia else "secondary",
+                      use_container_width=True, key="cad_modo_manual"):
+        st.session_state["cad_modo_ia"] = False
+        st.rerun()
+    if c_modo2.button("\u2728 Criar Com IA",
+                      type="primary" if modo_ia else "secondary",
+                      use_container_width=True, key="cad_modo_ia_btn"):
+        st.session_state["cad_modo_ia"] = True
+        st.rerun()
+    st.markdown("---")
+
+    if modo_ia:
+        tela_importar(integrada=True)
+        return
+
     banco = carregar_banco()
 
     info_cad = st.session_state.pop("cad_info", None)
@@ -5074,15 +5104,21 @@ def form_revisar_questao(uid="rev"):
             st.rerun()
 
 
-def tela_importar():
+def tela_importar(integrada=False):
     # Descritor escolhido na lista de sugestoes: aplica antes de criar o widget
     pendente = st.session_state.pop("ia_tema_pendente", None)
     if pendente:
         st.session_state["ia_tema"] = pendente
-    st.markdown("### Importar Questões com IA")
-    st.caption("A IA gera as questões usando a **sua própria chave de API** (Gemini ou ChatGPT), "
-               "configurada em **Configurações > Chave de API**. "
-               "O consumo é cobrado na sua conta do serviço.")
+    if integrada:
+        st.markdown("### Criar Questões com IA")
+        st.caption("A IA gera as questões usando a **sua própria chave de API** (Gemini ou ChatGPT), "
+                   "configurada em **Configurações > Chave de API**. "
+                   "Depois de geradas, você revisa e importa para o catálogo.")
+    else:
+        st.markdown("### Importar Questões com IA")
+        st.caption("A IA gera as questões usando a **sua própria chave de API** (Gemini ou ChatGPT), "
+                   "configurada em **Configurações > Chave de API**. "
+                   "O consumo é cobrado na sua conta do serviço.")
 
     info_ia = st.session_state.pop("ia_info", None)
     if info_ia:
