@@ -4830,15 +4830,23 @@ div[class*="st-key-cq_card_"] {
     border: 2px solid color-mix(in srgb, var(--cor-p) 32%, var(--card-bg)) !important;
     border-radius: 16px !important;
     box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 10px rgba(0,0,0,.05) !important;
-    padding: 1.15rem 1.3rem 1.3rem !important;
+    padding: 1.6rem 1.5rem 1.8rem !important;
     height: 100%;
 }
 div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-cq_card_"]) {
     height: 100% !important;
 }
+/* Mais ar entre o card 2 (Pergunta/Alternativas) e o card 3 (Metadados) */
+div[class*="st-key-cq_card_2"] { margin-bottom: 2.2rem !important; }
+/* Preenche a altura util da pagina (apenas em telas altas) */
+@media (min-height: 800px) {
+    [data-testid="stHorizontalBlock"]:has(div[class*="st-key-cq_card_1"]) {
+        min-height: calc(100vh - 340px) !important;
+    }
+}
 
 /* Titulo das secoes (barra vertical + texto) */
-.cq-sec { display: flex; align-items: center; gap: .55rem; margin: .1rem 0 1.05rem 0; }
+.cq-sec { display: flex; align-items: center; gap: .55rem; margin: .2rem 0 1.4rem 0; }
 .cq-sec .cq-sec-bar { width: 6px; height: 24px; border-radius: 3px; background: var(--cor-p); flex: none; }
 .cq-sec .cq-sec-txt {
     font-family: 'Poppins', system-ui, sans-serif;
@@ -4911,7 +4919,7 @@ div[class*="st-key-cq_card_3"] label[data-baseweb="radio"]:has(input:checked) {
                     '<span class="cq-sec-txt">1. Contexto Inicial e Imagem</span></div>',
                     unsafe_allow_html=True)
                 enunciado = st.text_area(
-                    "Enunciado / Texto de Contexto Inicial:", height=200,
+                    "Enunciado / Texto de Contexto Inicial:", height=280,
                     placeholder="Cole aqui o texto de contexto da questao...")
                 imagem = st.file_uploader(
                     "Imagem de Apoio (Opcional):",
