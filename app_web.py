@@ -4147,7 +4147,8 @@ def tela_mapeamento():
             st.markdown("**Exportar mapa de sala**")
             cor_p, cor_s = cores_marca()
             bytes_excel = gerar_excel_mapeamento(
-                turma, fileiras_eff, colunas_eff, grade_inicial, cor_p, cor_s)
+                turma, fileiras_eff, colunas_eff, grade_inicial, cor_p, cor_s,
+                alunos)
             st.download_button("Baixar planilha (.xlsx)", data=bytes_excel,
                                file_name=f"mapa_sala_{turma}.xlsx",
                                mime="application/vnd.openxmlformats-"
@@ -4219,9 +4220,31 @@ def nome_curto_mapa(nome):
     return " ".join(partes[:2])
 
 
-def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
+def nome_curto_mapa_longo(nome):
+    partes = [p for p in str(nome or "").strip().split() if p]
+    if len(partes) >= 3:
+        return " ".join(partes[:3])
+    return " ".join(partes)
+
+
+def mapa_nomes_exibicao(alunos):
+    freq = {}
+    for n in alunos:
+        b = nome_curto_mapa(n)
+        freq[b] = freq.get(b, 0) + 1
+    disp = {}
+    for n in alunos:
+        b = nome_curto_mapa(n)
+        disp[n] = nome_curto_mapa_longo(n) if freq[b] > 1 else b
+    return disp
+
+
+def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s,
+                           alunos):
     """Gera o mapa de sala (fileiras em colunas verticais) como planilha
-    estilizada: cabecalho com a cor da marca, bordas e separacao entre nomes."""
+    estilizada: cabecalho com a cor da marca, bordas e separacao entre nomes.
+    Nomes curtos (primeiro e segundo), incluindo o terceiro quando ha
+    colisao ou quando o segundo tem 2-3 letras."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = _sanear_aba(turma) or "Mapa"
@@ -4234,6 +4257,7 @@ def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
                             fill_type="solid")
     borda = Border(*[Side(style="thin", color="C9CFDD")] * 4)
     alinh = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    disp = mapa_nomes_exibicao(alunos)
 
     ws["A1"] = "Carteira"
     ws["A1"].fill = cor_topo
@@ -4257,7 +4281,8 @@ def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
             if j < len(grade) and i < len(grade[j]):
                 nome = grade[j][i]
             cel2 = ws.cell(row=2 + i, column=2 + j,
-                           value=nome_curto_mapa(nome) if nome else "")
+                           value=disp.get(nome, nome_curto_mapa(nome))
+                           if nome else "")
             cel2.alignment = alinh
             cel2.border = borda
             if nome:

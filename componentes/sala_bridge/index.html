@@ -11,7 +11,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
 .piscina{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;min-height:40px;transition:all .15s ease}
 .piscina.over{border-color:var(--cor-p, #7d3fe0);background:rgba(125,63,224,.06)}
 .piscina-rot{font-size:12px;color:#9a9a9a;font-weight:700;margin-right:4px}
-.grid{display:flex;flex-direction:row;gap:24px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+.grid{display:flex;flex-direction:row;gap:24px;align-items:flex-start;justify-content:center;overflow-x:auto;padding-bottom:8px}
 .fileira{display:flex;flex-direction:column;align-items:center;gap:14px;flex:none}
 .fileira-label{font-size:11px;color:#9a9a9a;font-weight:700;text-align:center;margin-bottom:2px}
 .carteiras{display:flex;flex-direction:column;gap:16px}
@@ -63,11 +63,22 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     document.documentElement.style.setProperty('--cor-s',corS);
   }
 
-  function nomeCurto(nome){
+  function nomeBase(nome){
     var partes=String(nome||'').trim().split(/\s+/);
     if(partes.length<=2)return partes.join(' ');
     if(partes[1].length<=3)return partes.slice(0,3).join(' ');
     return partes.slice(0,2).join(' ');
+  }
+  function nomeLongo(nome){
+    var partes=String(nome||'').trim().split(/\s+/);
+    if(partes.length>=3)return partes.slice(0,3).join(' ');
+    return partes.join(' ');
+  }
+  function nomesExibicao(){
+    var freq={},disp={};
+    alunos.forEach(function(n){var b=nomeBase(n);freq[b]=(freq[b]||0)+1;});
+    alunos.forEach(function(n){var b=nomeBase(n);disp[n]=freq[b]>1?nomeLongo(n):b;});
+    return disp;
   }
 
   function gradeInicial(){
@@ -89,6 +100,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     var naSala={};
     grade.forEach(function(r){r.forEach(function(n){if(n)naSala[n]=true;});});
     var fora=alunos.filter(function(n){return !naSala[n];});
+    var disp=nomesExibicao();
 
     piscinaEl.innerHTML='';
     if(fora.length){
@@ -96,7 +108,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
       rot.className='piscina-rot';
       rot.textContent='Alunos fora da sala:';
       piscinaEl.appendChild(rot);
-      fora.forEach(function(n){piscinaEl.appendChild(chip(n));});
+      fora.forEach(function(n){piscinaEl.appendChild(chip(n,disp[n]));});
       piscinaEl.style.display='flex';
     }else{
       piscinaEl.style.display='none';
@@ -120,7 +132,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
         if(nome){
           var card=document.createElement('div');
           card.className='aluno-card';
-          card.textContent=nomeCurto(nome);
+          card.textContent=disp[nome]||nomeBase(nome);
           card.setAttribute('draggable','true');
           card.dataset.ri=i;
           card.dataset.ci=j;
@@ -139,10 +151,10 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     altura();
   }
 
-  function chip(nome){
+  function chip(nome,texto){
     var c=document.createElement('span');
     c.className='chip';
-    c.textContent=nomeCurto(nome);
+    c.textContent=texto||nomeBase(nome);
     c.setAttribute('draggable','true');
     c.addEventListener('dragstart',function(ev){
       dragItem={nome:nome,origem:'piscina'};
