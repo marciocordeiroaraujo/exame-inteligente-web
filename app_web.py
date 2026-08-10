@@ -877,6 +877,27 @@ def salvar_turmas(dados):
 def salvar_config_grade(max_aulas):
     salvar_json(caminho_usuario(ARQUIVO_CONFIG_GRADE), {"max_aulas": max_aulas})
 
+def carregar_horarios_aulas():
+    cfg = carregar_config()
+    return cfg.get("horarios_aulas") or {}
+
+def salvar_horarios_aulas(dados):
+    cfg = carregar_config()
+    cfg["horarios_aulas"] = dados
+    salvar_config(cfg)
+
+def horario_padrao_aula(num):
+    base = datetime.strptime("07:30", "%H:%M")
+    inicio = (base + timedelta(minutes=(num - 1) * 60)).time()
+    fim = (base + timedelta(minutes=(num - 1) * 60 + 50)).time()
+    return inicio.strftime("%H:%M"), fim.strftime("%H:%M")
+
+def hora_para_time(texto):
+    try:
+        return datetime.strptime(texto, "%H:%M").time()
+    except Exception:
+        return datetime.strptime("07:30", "%H:%M").time()
+
 def salvar_avaliacoes(dados):
     salvar_json(caminho_usuario(ARQUIVO_AVALIACOES), dados)
 
@@ -3754,6 +3775,31 @@ def tela_dashboard(config):
 # =====================================================================
 # 10. TELA: GRADE SEMANAL
 # =====================================================================
+def _form_horarios_aulas(max_aulas):
+    horarios = carregar_horarios_aulas()
+    t_inicio = []
+    t_fim = []
+    with st.form(key="form_horarios_aulas"):
+        for num in range(1, max_aulas + 1):
+            atual = horarios.get(str(num)) or {}
+            ini = atual.get("inicio") or horario_padrao_aula(num)[0]
+            fim = atual.get("fim") or horario_padrao_aula(num)[1]
+            c1, c2 = st.columns(2)
+            t_inicio.append(c1.time_input(f"{num}ª aula",
+                                          value=hora_para_time(ini), key=f"ha_ini_{num}"))
+            t_fim.append(c2.time_input("até",
+                                       value=hora_para_time(fim), key=f"ha_fim_{num}"))
+        salvo = st.form_submit_button("Salvar horários", use_container_width=True)
+    if salvo:
+        novos = {}
+        for i, num in enumerate(range(1, max_aulas + 1)):
+            novos[str(num)] = {
+                "inicio": t_inicio[i].strftime("%H:%M"),
+                "fim": t_fim[i].strftime("%H:%M"),
+            }
+        salvar_horarios_aulas(novos)
+        st.success("Horários das aulas salvos com sucesso!")
+
 def tela_grade_semanal():
     st.markdown("## Grade Semanal")
     grade = carregar_grade()
@@ -3768,6 +3814,15 @@ def tela_grade_semanal():
                 if st.button("Atualizar", use_container_width=True):
                     salvar_config_grade(int(nova_qtd))
                     st.rerun()
+                st.markdown("---")
+                st.markdown("**Horários das aulas**")
+                if st.button("Configurar horário das aulas", use_container_width=True,
+                             key="btn_cfg_horarios"):
+                    st.session_state["cfg_horarios_aberto"] = not st.session_state.get(
+                        "cfg_horarios_aberto", False)
+                    st.rerun()
+                if st.session_state.get("cfg_horarios_aberto"):
+                    _form_horarios_aulas(max_aulas)
 
         with c_add:
             with st.container(key="card_grade_add"):
