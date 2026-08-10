@@ -933,6 +933,7 @@ def _b64_arquivo(nome_arquivo):
 
 LOGO_ABA_B64 = _b64_arquivo("logo_aba_padrao.png") or _LOGO_ABA_B64_PADRAO
 LOGO_ABA_B64_ROXO = _b64_arquivo("logo_texto.png") or _LOGO_ABA_B64_PADRAO
+LOGO_ABA_B64_STITCH = _b64_arquivo("logo_stitch.png") or LOGO_ABA_B64_ROXO
 
 
 # =====================================================================
@@ -2167,6 +2168,17 @@ section[data-testid="stSidebar"] .stCaption {
 section[data-testid="stSidebar"] .logo-aba img {
     filter: drop-shadow(0 2px 8px rgba(139,92,246,0.35));
 }
+/* Logo Stitch (quadrada): mantem a MESMA AREA ocupada da logo anterior
+   (735x296 -> 124px de largura). Nova: largura = sqrt(area) em cada faixa. */
+section[data-testid="stSidebar"] .logo-aba.logo-stitch img {
+    width: 79px !important;
+}
+@media (max-height: 900px) {
+    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 61px !important; }
+}
+@media (max-height: 780px) {
+    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 53px !important; }
+}
 section[data-testid="stSidebar"] .nav-secao {
     color: #9ca3af !important;
     border-top: 1px solid rgba(255,255,255,0.06);
@@ -3270,10 +3282,19 @@ ICONES_NAV = {
 
 def montar_sidebar():
     atual = pagina_atual()
-    logo_b64 = LOGO_ABA_B64_ROXO if carregar_config().get("tema_visual") in ("roxo", "teste") else LOGO_ABA_B64
+    tema = carregar_config().get("tema_visual")
+    if tema == "teste":
+        logo_b64 = LOGO_ABA_B64_STITCH
+        logo_cls = "logo-aba logo-stitch"
+    elif tema == "roxo":
+        logo_b64 = LOGO_ABA_B64_ROXO
+        logo_cls = "logo-aba"
+    else:
+        logo_b64 = LOGO_ABA_B64
+        logo_cls = "logo-aba"
     with st.sidebar:
         st.markdown(
-            '<div class="logo-aba">'
+            f'<div class="{logo_cls}">'
             f'<img src="data:image/png;base64,{logo_b64}" alt="Exame Inteligente" /></div>',
             unsafe_allow_html=True)
         st.markdown('<div class="nav-secao">Planejamento</div>', unsafe_allow_html=True)
