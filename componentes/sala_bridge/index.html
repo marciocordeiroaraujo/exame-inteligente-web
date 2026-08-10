@@ -25,6 +25,9 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
 .chip:hover{border-color:var(--cor-p, #7d3fe0)}
 .chip.dragging{opacity:.4}
 .sala-acoes{margin-top:14px;display:flex;justify-content:flex-end;gap:8px}
+.sala-status{font-size:13px;font-weight:700;margin-top:12px;text-align:right;min-height:18px}
+.sala-status.ok{color:#1a8f4c}
+.sala-status.info{color:#6c757d}
 .btn{border:none;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;transition:filter .15s ease}
 .btn-primario{background:linear-gradient(135deg,var(--cor-p, #7d3fe0),var(--cor-s, #5b2ea6));color:#ffffff}
 .btn-primario:hover{filter:brightness(1.06)}
@@ -38,6 +41,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
   <div class="sala-sub" id="sub"></div>
   <div class="piscina" id="piscina"></div>
   <div class="grid" id="grid"></div>
+  <div class="sala-status" id="status"></div>
   <div class="sala-acoes">
     <button class="btn btn-secundario" id="btnReiniciar" type="button">Reiniciar</button>
     <button class="btn btn-primario" id="btnConfirmar" type="button">Confirmar Posições</button>
@@ -214,13 +218,26 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     }
   }
 
+  function mostrarStatus(msg,tipo){
+    var s=document.getElementById('status');
+    s.textContent=msg;
+    s.className='sala-status'+(tipo?' '+tipo:'');
+    clearTimeout(mostrarStatus._t);
+    mostrarStatus._t=setTimeout(function(){
+      s.textContent='';
+      s.className='sala-status';
+    },5000);
+  }
+
   function confirmar(){
     post('streamlit:setComponentValue',{
       value:{turma:turma,fileiras:fileiras,colunas:colunas,grade:grade},
       dataType:'json'
     });
+    mostrarStatus('Posições salvas com sucesso!','ok');
   }
   function reiniciar(){
+    if(!window.confirm('Tem certeza que deseja resetar a organização? A disposição atual será perdida.'))return;
     var fila=alunos.slice();
     grade=[];
     for(var i=0;i<fileiras;i++){
@@ -229,6 +246,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
       grade.push(linha);
     }
     render();
+    mostrarStatus('Organização reiniciada.','info');
   }
 
   var args={};
