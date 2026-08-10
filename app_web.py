@@ -1251,6 +1251,20 @@ div[class*="st-key-lista_alunos"] div[data-testid="stMarkdownContainer"] p {
 div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child,
 div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2) {
     display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 2px;
+}
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child {
+    padding-right: 0;
+}
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2) {
+    padding-left: 0;
+}
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2) div[data-testid="stLayoutWrapper"] {
+    margin-left: auto;
+}
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2),
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child {
+    flex: 0 0 auto; width: auto;
 }
 div[class*="st-key-aluno_"] button {
     min-width: 34px; height: 34px; padding: 0 !important;
@@ -4085,14 +4099,7 @@ def tela_turmas():
                     c1, c2, c3 = st.columns([6, 1, 1])
                     c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
                                 unsafe_allow_html=True)
-                    if c2.button("x", key=f"aluno_{turma_atual}_{i}", help="Excluir aluno"):
-                        alvo = aluno.lower()
-                        dados_turmas[turma_atual] = [
-                            a for a in dados_turmas[turma_atual]
-                            if normalizar_nome(a).lower() != alvo]
-                        salvar_turmas(dados_turmas)
-                        st.rerun()
-                    with c3.popover("Mover", key=f"mover_{turma_atual}_{i}",
+                    with c2.popover("Mover", key=f"mover_{turma_atual}_{i}",
                                     help="Mover para outra turma"):
                         outras = [t for t in turmas_grade if t != turma_atual]
                         if not outras:
@@ -4110,6 +4117,13 @@ def tela_turmas():
                                 salvar_turmas(dados_turmas)
                                 st.session_state["turma_selecionada"] = destino
                                 st.rerun()
+                    if c3.button("x", key=f"aluno_{turma_atual}_{i}", help="Excluir aluno"):
+                        alvo = aluno.lower()
+                        dados_turmas[turma_atual] = [
+                            a for a in dados_turmas[turma_atual]
+                            if normalizar_nome(a).lower() != alvo]
+                        salvar_turmas(dados_turmas)
+                        st.rerun()
 
 def processar_arquivo_alunos(arquivo, turma_atual, dados_turmas):
     nome_arq = arquivo.name.lower()
