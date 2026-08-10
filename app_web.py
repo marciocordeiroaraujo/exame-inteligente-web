@@ -1381,6 +1381,8 @@ div[class*="st-key-cal_d_"] button [data-testid="stMarkdownContainer"] p {
 .gcell-colorido .gcell-aula { color: #1f2937 !important; }
 .gcell-colorido .gcell-turma { color: #1f2937 !important; }
 .gcell-colorido .gcell-disc { color: #374151 !important; }
+.gcell-tempo {font-weight: 400; font-size: .72rem; color: var(--cor-cinza); margin-left: 5px; white-space: nowrap;}
+.gcell-colorido .gcell-tempo {color: #374151;}
 /* Grade: botoes nativos (excluir sup dir / paleta inf dir) sobre o card */
 div[class*="st-key-cell_"] {position: relative !important;}
 div[class*="st-key-cell_"] > div[class*="st-key-del_"],
@@ -1409,6 +1411,11 @@ div[class*="st-key-cell_"]:hover > div[class*="st-key-pal_"] {display: block; bo
     border: 1px dashed var(--borda); border-radius: 10px;
     height: calc(100% - 6px); min-height: 58px; margin-bottom: 6px;
     background: transparent; box-sizing: border-box;
+}
+
+/* Grade Semanal: coluna de horarios estreita (so indica o horario da linha) */
+div[class*="st-key-grade_dias"] [data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:first-child {
+    flex: 0 0 130px !important;
 }
 /* mantem o botao da paleta ancorado enquanto o popover esta aberto */
 div[class*="st-key-cell_"]:has(div[class*="st-key-pal_"] [aria-expanded="true"]) > div[class*="st-key-pal_"] {
@@ -3361,7 +3368,7 @@ def _ordem_aula(aula):
         return 0
 
 
-def html_aulas_dia(grade_horaria, dia_str):
+def html_aulas_dia(grade_horaria, dia_str, horarios=None):
     try:
         nome_dia = DIAS_COMPLETOS[datetime.strptime(dia_str, "%d/%m/%Y").weekday()]
     except Exception:
@@ -3378,8 +3385,14 @@ def html_aulas_dia(grade_horaria, dia_str):
         cor_hex = dict(CORES_AULA).get(cor_val, cor_val if cor_val.startswith("#") else "")
         cor_cls = " gcell-colorido" if cor_hex else ""
         cor_style = f' style="background:{esc(cor_hex)}"' if cor_hex else ""
+        tempo = ""
+        m = re.search(r"(\d+)", str(a.get("aula", "")))
+        if m and horarios:
+            h = horarios.get(m.group(1))
+            if h and h.get("inicio") and h.get("fim"):
+                tempo = f' <span class="gcell-tempo">{esc(h["inicio"])} - {esc(h["fim"])}</span>'
         cards += (f'<div class="gcell adias-cell{cor_cls}"{cor_style}>'
-                  f'<div class="gcell-aula">{esc(a.get("aula",""))}</div>'
+                  f'<div class="gcell-aula">{esc(a.get("aula",""))}{tempo}</div>'
                   f'<div class="gcell-turma">{esc(a.get("turma",""))}</div>'
                   f'<div class="gcell-disc">{esc(a.get("disciplina","Geral"))}</div></div>')
     return f'<div class="adias">{cards}</div>'
@@ -3686,11 +3699,20 @@ def fragmento_dashboard():
                 f'{esc(dia_selecionada)}:</div>',
                 unsafe_allow_html=True)
             planos_dia = planos.get(dia_selecionada, [])
+            horarios = carregar_horarios_aulas()
             if planos_dia:
                 for i, plano in enumerate(planos_dia):
+                    horario_plano = plano.get("horario", "")
+                    tempo_plano = ""
+                    m = re.search(r"(\d+)", str(horario_plano))
+                    if m:
+                        h = horarios.get(m.group(1))
+                        if h and h.get("inicio") and h.get("fim"):
+                            tempo_plano = (f' <span class="dash-tl-time">'
+                                           f'{esc(h["inicio"])} - {esc(h["fim"])}</span>')
                     st.markdown(
                         f'<div class="dash-tl-item">'
-                        f'<div class="dash-tl-hora">\U0001f550 {esc(plano.get("horario",""))}</div>'
+                        f'<div class="dash-tl-hora">\U0001f550 {esc(horario_plano)}{tempo_plano}</div>'
                         f'<div class="dash-tl-txt">{esc(plano.get("turma",""))} — '
                         f'{esc(plano.get("disciplina","Geral"))}</div>'
                         f'<div class="dash-tl-sub">{esc(plano.get("tema","Sem tema"))}</div></div>',
@@ -3698,7 +3720,7 @@ def fragmento_dashboard():
                     with st.popover("Visualizar / Editar", key=f"dash_plano_pop_{dia_selecionada}_{i}",
                                     use_container_width=True):
                         form_plano(dia_selecionada, i, uid=f"dash_plano_{dia_selecionada}_{i}")
-            st.markdown(html_aulas_dia(grade, dia_selecionada), unsafe_allow_html=True)
+            st.markdown(html_aulas_dia(grade, dia_selecionada, horarios), unsafe_allow_html=True)
 
 def tela_dashboard(config):
     hoje = datetime.now()
@@ -3760,6 +3782,7 @@ def tela_dashboard(config):
 }
 .dash-tl-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); }
 .dash-tl-hora { font-weight: 700; font-size: .85rem; color: var(--cor-p); }
+.dash-tl-time { font-weight: 400; font-size: .85rem; color: var(--cor-cinza); margin-left: 6px; white-space: nowrap; }
 .dash-tl-txt { font-size: .9rem; font-weight: 600; color: var(--cor-texto); }
 .dash-tl-sub { font-size: .78rem; color: var(--cor-cinza); }
 </style>""", unsafe_allow_html=True)
