@@ -83,6 +83,7 @@ ARQUIVO_ANOTACOES = "anotacoes.json"
 ARQUIVO_TURMAS = "turmas_alunos.json"
 ARQUIVO_CONFIG_GRADE = "config_grade.json"
 ARQUIVO_AVALIACOES = "avaliacoes.json"
+ARQUIVO_MAPEAMENTO = "mapeamento_sala.json"
 PASTA_IMAGENS = "imagens_apoio"
 ARQUIVO_USUARIOS = "usuarios.json"
 ARQUIVO_VERIFICACOES = "verificacoes_email.json"
@@ -873,6 +874,12 @@ def salvar_anotacoes(dados):
 
 def salvar_turmas(dados):
     salvar_json(caminho_usuario(ARQUIVO_TURMAS), dados)
+
+def carregar_mapeamento():
+    return carregar_json(caminho_usuario(ARQUIVO_MAPEAMENTO), {})
+
+def salvar_mapeamento(dados):
+    salvar_json(caminho_usuario(ARQUIVO_MAPEAMENTO), dados)
 
 def salvar_config_grade(max_aulas):
     salvar_json(caminho_usuario(ARQUIVO_CONFIG_GRADE), {"max_aulas": max_aulas})
@@ -2925,6 +2932,32 @@ _EI_BRIDGE_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "componentes", "ei_bridge")
 _ei_bridge = components.declare_component("ei_bridge", path=_EI_BRIDGE_DIR)
 
+# Componente de Mapeamento de Sala (arrastar e soltar). O HTML envia a
+# nova disposicao das carteiras de volta via streamlit:setComponentValue.
+_SALA_BRIDGE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "componentes", "sala_bridge")
+_sala_bridge = components.declare_component("sala_bridge", path=_SALA_BRIDGE_DIR)
+
+
+def cores_marca():
+    """Retorna (cor_principal, cor_secundaria) do tema visual ativo."""
+    cfg = carregar_config()
+    tema = cfg.get("tema_visual", "")
+    if tema in ("roxo", "branco_novo"):
+        return "#7d3fe0", "#5b2ea6"
+    if tema == "teste":
+        return "#8b5cf6", "#4c1d95"
+    presets = {
+        "blue": ("#1f538d", "#14375e"),
+        "green": ("#1d7a46", "#104f2c"),
+        "dark-blue": ("#1a3a6b", "#0e2340"),
+    }
+    cor_tema = cfg.get("cor_tema", "blue")
+    if cor_tema in presets:
+        return presets[cor_tema]
+    return (cfg.get("cor_principal", "#1f538d"),
+            cfg.get("cor_secundaria", "#14375e"))
+
 
 def _html_fallback_manual(tempo_ms=4000):
     """Redireciona o pai para ?ei_manual=1 se a ponte nao entregar nada."""
@@ -3194,6 +3227,7 @@ NAV_PLANEJAMENTO = [
     ("Dashboard", "In\u00edcio"),
     ("Grade Semanal", "Grade Semanal"),
     ("Turmas e Alunos", "Turmas e Alunos"),
+    ("Mapeamento de Sala", "Mapeamento de Sala"),
     ("Central de Planos", "Central de Planos"),
     ("Anotacoes", "Lembretes"),
 ]
@@ -3208,6 +3242,7 @@ ICONES_NAV = {
     "Dashboard": "\u2302",
     "Grade Semanal": "\u25a6",
     "Turmas e Alunos": "\u25c8",
+    "Mapeamento de Sala": "\u25c9",
     "Central de Planos": "\u2691\uFE0E",
     "Anotacoes": "\u270e\uFE0E",
     "Central de Questões": "\u2630",
@@ -4047,6 +4082,98 @@ def tela_grade_semanal():
                                                     g["cor"] = nome
                                             salvar_grade(grade)
                                             st.rerun()
+
+# =====================================================================
+# 11. TELA: TURMAS E ALUNOS
+# =====================================================================
+def _grade_mapeamento_inicial(layout, fileiras, colunas, alunos):
+    if (layout and layout.get("fileiras") == fileiras
+            and layout.get("colunas") == colunas
+            and isinstance(layout.get("grade"), list)
+            and len(layout["grade"]) == fileiras
+            and all(isinstance(r, list) and len(r) == colunas
+                    for r in layout["grade"])):
+        return [list(r) for r in layout["grade"]]
+    fila = list(alunos)
+    grade = []
+    for _ in range(fileiras):
+        linha = []
+        for _ in range(colunas):
+            linha.append(fila.pop(0) if fila else None)
+        grade.append(linha)
+    return grade
+
+
+def tela_mapeamento():
+    st.markdown("## Mapeamento de Sala")
+    grade = carregar_grade()
+    turmas_grade = sorted(list(set(i["turma"] for i in grade)))
+    if not turmas_grade:
+        st.error("Nenhuma turma cadastrada na Grade Semanal. "
+                 "Cadastre turmas la primeiro.")
+        return
+    dados_turmas = carregar_turmas()
+    mapeamentos = carregar_mapeamento()
+
+    if ("map_turma" not in st.session_state
+            or st.session_state["map_turma"] not in turmas_grade):
+        st.session_state["map_turma"] = turmas_grade[0]
+
+    c_t, c_f, c_c = st.columns(3)
+    turma = c_t.selectbox("Turma", turmas_grade, key="map_turma")
+    atual = mapeamentos.get(turma) or {}
+
+    if st.session_state.get("map_turma_ant") != turma:
+        st.session_state.pop("map_fileiras", None)
+        st.session_state.pop("map_colunas", None)
+        st.session_state["map_turma_ant"] = turma
+
+    fileiras = int(c_f.number_input("Quantidade de fileiras", 1, 12,
+                                    value=int(atual.get("fileiras", 4)),
+                                    step=1, key="map_fileiras"))
+    colunas = int(c_c.number_input("Carteiras por fileira", 1, 12,
+                                   value=int(atual.get("colunas", 5)),
+                                   step=1, key="map_colunas"))
+
+    alunos = [normalizar_nome(a) for a in dados_turmas.get(turma, [])]
+    alunos = sorted({a for a in alunos if a}, key=lambda x: x.lower())
+
+    if not alunos:
+        st.warning("Esta turma nao possui alunos cadastrados. "
+                   "Cadastre alunos na tela 'Turmas e Alunos' primeiro.")
+        return
+
+    total = fileiras * colunas
+    if total < len(alunos):
+        st.info(f"A turma {turma} tem {len(alunos)} alunos, mas a sala tem "
+                f"apenas {total} carteiras. Os alunos excedentes ficam na "
+                "barra 'Alunos fora da sala' e podem entrar por arrastar e "
+                "soltar.")
+
+    st.caption("Arraste e solte os cartoes para posicionar cada aluno. "
+               "Solte sobre um aluno ocupado para trocar de lugar. "
+               "Ao terminar, clique em 'Confirmar Posicoes'.")
+
+    grade_inicial = _grade_mapeamento_inicial(atual, fileiras, colunas, alunos)
+    cor_p, cor_s = cores_marca()
+    resultado = _sala_bridge(turma=turma, fileiras=fileiras, colunas=colunas,
+                             alunos=alunos, grade=grade_inicial,
+                             cor_principal=cor_p, cor_secundaria=cor_s,
+                             key=f"sala_mapa_{turma}")
+
+    if (resultado and isinstance(resultado, dict) and resultado.get("grade")
+            and isinstance(resultado["grade"], list)
+            and len(resultado["grade"]) == fileiras
+            and all(isinstance(r, list) and len(r) == colunas
+                    for r in resultado["grade"])):
+        g = resultado["grade"]
+        salvo_grade = mapeamentos.get(turma, {}).get("grade")
+        if g != salvo_grade:
+            mapeamentos[turma] = {"fileiras": fileiras, "colunas": colunas,
+                                  "grade": g}
+            salvar_mapeamento(mapeamentos)
+            st.success("Posicoes salvas com sucesso!")
+
 
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
@@ -6314,6 +6441,8 @@ def main():
         tela_grade_semanal()
     elif pagina == "Turmas e Alunos":
         tela_turmas()
+    elif pagina == "Mapeamento de Sala":
+        tela_mapeamento()
     elif pagina == "Central de Planos":
         tela_central_planos(config)
     elif pagina == "Anotacoes":

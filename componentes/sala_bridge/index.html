@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.sala-wrap{max-width:100%;padding:2px}
+.sala-titulo{font-size:15px;font-weight:700;color:#1f1f1f;margin-bottom:2px}
+.sala-sub{font-size:12px;color:#6c757d;margin-bottom:10px}
+.piscina{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;min-height:40px}
+.piscina-rot{font-size:12px;color:#9a9a9a;font-weight:700;margin-right:4px}
+.grid{display:flex;flex-direction:column;gap:12px}
+.fileira{display:flex;align-items:center;gap:10px}
+.fileira-label{width:22px;font-size:11px;color:#9a9a9a;font-weight:700;text-align:center;flex:none}
+.carteiras{display:flex;gap:10px;flex-wrap:wrap}
+.carteira{width:96px;height:60px;border:1.5px dashed #c9cfdd;border-radius:12px;background:#f6f7fb;display:flex;align-items:center;justify-content:center;transition:all .15s ease}
+.carteira.over{border-color:var(--cor-p, #7d3fe0);background:rgba(125,63,224,.08)}
+.aluno-card{width:100%;height:100%;border-radius:10px;border:1.5px solid var(--cor-p, #7d3fe0);background:#ffffff;color:var(--cor-p, #7d3fe0);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;cursor:grab;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.aluno-card:hover{background:rgba(125,63,224,.06)}
+.aluno-card.dragging{opacity:.4}
+.chip{padding:6px 12px;border-radius:20px;background:rgba(125,63,224,.10);color:var(--cor-p, #7d3fe0);font-size:12px;font-weight:600;cursor:grab;border:1px solid transparent;user-select:none}
+.chip:hover{border-color:var(--cor-p, #7d3fe0)}
+.chip.dragging{opacity:.4}
+.sala-acoes{margin-top:14px;display:flex;justify-content:flex-end;gap:8px}
+.btn{border:none;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;transition:filter .15s ease}
+.btn-primario{background:linear-gradient(135deg,var(--cor-p, #7d3fe0),var(--cor-s, #5b2ea6));color:#ffffff}
+.btn-primario:hover{filter:brightness(1.06)}
+.btn-secundario{background:#ffffff;color:var(--cor-p, #7d3fe0);border:1.5px solid var(--cor-p, #7d3fe0)}
+.btn-secundario:hover{background:rgba(125,63,224,.06)}
+</style>
+</head>
+<body>
+<div class="sala-wrap">
+  <div class="sala-titulo" id="titulo"></div>
+  <div class="sala-sub" id="sub"></div>
+  <div class="piscina" id="piscina"></div>
+  <div class="grid" id="grid"></div>
+  <div class="sala-acoes">
+    <button class="btn btn-secundario" id="btnReiniciar" type="button">Reiniciar</button>
+    <button class="btn btn-primario" id="btnConfirmar" type="button">Confirmar Posições</button>
+  </div>
+</div>
+<script>
+(function(){
+  var turma='', fileiras=1, colunas=1, alunos=[];
+  var corP='#7d3fe0', corS='#5b2ea6';
+  var grade=[];
+  var dragItem=null;
+  var gridEl=null, piscinaEl=null;
+
+  function post(type,payload){
+    var msg={isStreamlitMessage:true,type:type};
+    if(payload){for(var k in payload)msg[k]=payload[k];}
+    window.parent.postMessage(msg,'*');
+  }
+  function altura(){
+    post('streamlit:setFrameHeight',{height:Math.max(120,document.body.scrollHeight+24)});
+  }
+  function setCores(){
+    document.documentElement.style.setProperty('--cor-p',corP);
+    document.documentElement.style.setProperty('--cor-s',corS);
+  }
+
+  function gradeInicial(){
+    var g=[];
+    var a=args.grade;
+    if(Array.isArray(a)&&a.length===fileiras&&a.every(function(r){return Array.isArray(r)&&r.length===colunas;})){
+      return a.map(function(r){return r.slice();});
+    }
+    var fila=alunos.slice();
+    for(var i=0;i<fileiras;i++){
+      var linha=[];
+      for(var j=0;j<colunas;j++){linha.push(fila.length?fila.shift():null);}
+      g.push(linha);
+    }
+    return g;
+  }
+
+  function render(){
+    var naSala={};
+    grade.forEach(function(r){r.forEach(function(n){if(n)naSala[n]=true;});});
+    var fora=alunos.filter(function(n){return !naSala[n];});
+
+    piscinaEl.innerHTML='';
+    if(fora.length){
+      var rot=document.createElement('span');
+      rot.className='piscina-rot';
+      rot.textContent='Alunos fora da sala:';
+      piscinaEl.appendChild(rot);
+      fora.forEach(function(n){piscinaEl.appendChild(chip(n));});
+      piscinaEl.style.display='flex';
+    }else{
+      piscinaEl.style.display='none';
+    }
+
+    gridEl.innerHTML='';
+    grade.forEach(function(linha,i){
+      var fi=document.createElement('div');
+      fi.className='fileira';
+      var lab=document.createElement('div');
+      lab.className='fileira-label';
+      lab.textContent='F'+(i+1);
+      fi.appendChild(lab);
+      var cs=document.createElement('div');
+      cs.className='carteiras';
+      linha.forEach(function(nome,j){
+        var cel=document.createElement('div');
+        cel.className='carteira'+(nome?'':' vazia');
+        cel.dataset.ri=i;
+        cel.dataset.ci=j;
+        if(nome){
+          var card=document.createElement('div');
+          card.className='aluno-card';
+          card.textContent=nome;
+          card.setAttribute('draggable','true');
+          card.dataset.ri=i;
+          card.dataset.ci=j;
+          card.addEventListener('dragstart',dragStart);
+          card.addEventListener('dragend',dragEnd);
+          cel.appendChild(card);
+        }
+        cel.addEventListener('dragover',function(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('over');});
+        cel.addEventListener('dragleave',function(e){e.currentTarget.classList.remove('over');});
+        cel.addEventListener('drop',drop);
+        cs.appendChild(cel);
+      });
+      fi.appendChild(cs);
+      gridEl.appendChild(fi);
+    });
+    altura();
+  }
+
+  function chip(nome){
+    var c=document.createElement('span');
+    c.className='chip';
+    c.textContent=nome;
+    c.setAttribute('draggable','true');
+    c.addEventListener('dragstart',function(ev){
+      dragItem={nome:nome,origem:'piscina'};
+      ev.target.classList.add('dragging');
+      ev.dataTransfer.effectAllowed='move';
+      try{ev.dataTransfer.setData('text/plain',nome);}catch(e){}
+    });
+    c.addEventListener('dragend',dragEnd);
+    return c;
+  }
+
+  function dragStart(ev){
+    dragItem={nome:ev.target.textContent,origem:'sala',ri:+ev.target.dataset.ri,ci:+ev.target.dataset.ci};
+    ev.target.classList.add('dragging');
+    ev.dataTransfer.effectAllowed='move';
+    try{ev.dataTransfer.setData('text/plain',ev.target.textContent);}catch(e){}
+  }
+  function dragEnd(ev){
+    if(ev.target.classList)ev.target.classList.remove('dragging');
+    dragItem=null;
+  }
+
+  function drop(ev){
+    ev.preventDefault();
+    var cel=ev.currentTarget;
+    cel.classList.remove('over');
+    if(!dragItem)return;
+    var ri=+cel.dataset.ri,ci=+cel.dataset.ci;
+    if(isNaN(ri)||isNaN(ci))return;
+    if(dragItem.origem==='sala'){
+      var nome=grade[dragItem.ri][dragItem.ci];
+      var alvo=grade[ri][ci];
+      grade[dragItem.ri][dragItem.ci]=alvo;
+      grade[ri][ci]=nome;
+    }else{
+      grade[ri][ci]=dragItem.nome;
+    }
+    render();
+  }
+
+  function confirmar(){
+    post('streamlit:setComponentValue',{
+      value:{turma:turma,fileiras:fileiras,colunas:colunas,grade:grade},
+      dataType:'json'
+    });
+  }
+  function reiniciar(){
+    var fila=alunos.slice();
+    grade=[];
+    for(var i=0;i<fileiras;i++){
+      var linha=[];
+      for(var j=0;j<colunas;j++){linha.push(fila.length?fila.shift():null);}
+      grade.push(linha);
+    }
+    render();
+  }
+
+  var args={};
+  window.addEventListener('message',function(ev){
+    var d=ev.data;
+    if(!d||d.type!=='streamlit:render')return;
+    args=d.args||{};
+    turma=args.turma||'';
+    fileiras=Math.max(1,+args.fileiras||1);
+    colunas=Math.max(1,+args.colunas||1);
+    alunos=(args.alunos&&args.alunos.slice)?args.alunos.slice():[];
+    corP=args.cor_principal||'#7d3fe0';
+    corS=args.cor_secundaria||'#5b2ea6';
+    setCores();
+    grade=gradeInicial();
+    document.getElementById('titulo').textContent='Mapa de sala - Turma '+turma;
+    document.getElementById('sub').textContent=fileiras+' fileira(s) x '+colunas+' carteira(s) por fileira';
+    render();
+  });
+
+  window.addEventListener('resize',function(){altura();});
+  gridEl=document.getElementById('grid');
+  piscinaEl=document.getElementById('piscina');
+  document.getElementById('btnConfirmar').addEventListener('click',confirmar);
+  document.getElementById('btnReiniciar').addEventListener('click',reiniciar);
+
+  post('streamlit:componentReady',{apiVersion:1});
+  post('streamlit:setFrameHeight',{height:120});
+})();
+</script>
+</body>
+</html>
