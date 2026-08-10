@@ -104,7 +104,7 @@ CONFIG_PADRAO = {
     "mostrar_turma": True,
     "mostrar_data": True,
     "aparencia": "System",
-    "tema_visual": "",
+    "tema_visual": "teste",
     "cor_tema": "blue",
     "cor_principal": "#1f538d",
     "cor_secundaria": "#14375e",
@@ -815,7 +815,10 @@ def carregar_config():
     else:
         padrao["professor"] = "Professor"
     padrao["escola"] = ""
-    return carregar_json(caminho_usuario(ARQUIVO_CONFIG), padrao)
+    dados = carregar_json(caminho_usuario(ARQUIVO_CONFIG), padrao)
+    if not dados.get("tema_visual"):
+        dados["tema_visual"] = "teste"
+    return dados
 
 def carregar_planos():
     return carregar_json(caminho_usuario(ARQUIVO_PLANOS), {})
@@ -6394,14 +6397,13 @@ def tela_configuracoes():
     with tab_tema:
         st.markdown("**Tema visual:**")
         tema_atual = config.get("tema_visual", "")
-        aparencia_atual = config.get("aparencia", "Light")
         if tema_atual == "roxo":
             idx_tema = 2
         elif tema_atual == "branco_novo":
             idx_tema = 3
         elif tema_atual == "teste":
             idx_tema = 4
-        elif aparencia_atual == "Dark":
+        elif tema_atual == "padrao_escuro":
             idx_tema = 1
         else:
             idx_tema = 0
@@ -6433,10 +6435,10 @@ def tela_configuracoes():
                 nova["tema_visual"] = "teste"
                 nova["aparencia"] = "Light"
             elif tema == "Padr\u00e3o - Escuro":
-                nova["tema_visual"] = ""
+                nova["tema_visual"] = "padrao_escuro"
                 nova["aparencia"] = "Dark"
             else:
-                nova["tema_visual"] = ""
+                nova["tema_visual"] = "padrao_claro"
                 nova["aparencia"] = "Light"
             salvar_config(nova)
             st.success("Tema atualizado!")
