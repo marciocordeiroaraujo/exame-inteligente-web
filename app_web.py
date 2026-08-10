@@ -4248,60 +4248,46 @@ def mapa_nomes_exibicao(alunos):
 
 def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s,
                            alunos):
-    """Gera o mapa de sala (fileiras em colunas verticais) como planilha
-    estilizada: cabecalho com a cor da marca, bordas e separacao entre nomes.
-    Nomes curtos (primeiro e segundo), incluindo o terceiro quando ha
-    colisao ou quando o segundo tem 2-3 letras."""
+    """Gera o mapa de sala como folha em branco: titulo com o nome da sala
+    centralizado no topo, rotulos 'Fileira 1..N', sem linhas de grade nem cor
+    de fundo, com borda grossa apenas nos nomes dos alunos e espaco
+    (vertical/horizontal) ao redor de cada nome."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = _sanear_aba(turma) or "Mapa"
-    hex_p = (cor_p or "#1F538D").lstrip("#")[:6]
-    cor_topo = PatternFill(start_color=hex_p, end_color=hex_p,
-                           fill_type="solid")
-    cor_rot = PatternFill(start_color="EEF0F6", end_color="EEF0F6",
-                          fill_type="solid")
-    cor_vazio = PatternFill(start_color="F7F8FB", end_color="F7F8FB",
-                            fill_type="solid")
-    borda = Border(*[Side(style="thin", color="C9CFDD")] * 4)
+    borda = Border(*(Side(style="thick", color="000000") for _ in range(4)))
     alinh = Alignment(horizontal="center", vertical="center", wrap_text=True)
     disp = mapa_nomes_exibicao(alunos)
 
-    ws["A1"] = "Carteira"
-    ws["A1"].fill = cor_topo
-    ws["A1"].font = Font(bold=True, color="FFFFFF")
-    ws["A1"].alignment = alinh
-    ws["A1"].border = borda
+    ws.cell(row=1, column=1, value=turma)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1,
+                   end_column=fileiras)
+    cel_t = ws.cell(row=1, column=1)
+    cel_t.font = Font(bold=True, size=16)
+    cel_t.alignment = alinh
+    ws.row_dimensions[1].height = 28
+
     for j in range(fileiras):
-        cel = ws.cell(row=1, column=2 + j, value=f"F{j + 1}")
-        cel.fill = cor_topo
-        cel.font = Font(bold=True, color="FFFFFF")
+        cel = ws.cell(row=2, column=1 + j, value=f"Fileira {j + 1}")
+        cel.font = Font(bold=True, size=11)
         cel.alignment = alinh
-        cel.border = borda
+    ws.row_dimensions[2].height = 20
+
     for i in range(colunas):
-        cel = ws.cell(row=2 + i, column=1, value=f"C{i + 1}")
-        cel.fill = cor_rot
-        cel.alignment = alinh
-        cel.border = borda
-        cel.font = Font(bold=True)
+        ws.row_dimensions[3 + i].height = 34
         for j in range(fileiras):
             nome = None
             if j < len(grade) and i < len(grade[j]):
                 nome = grade[j][i]
-            cel2 = ws.cell(row=2 + i, column=2 + j,
+            cel2 = ws.cell(row=3 + i, column=1 + j,
                            value=disp.get(nome, nome_curto_mapa(nome))
-                           if nome else "")
+                           if nome else None)
             cel2.alignment = alinh
-            cel2.border = borda
             if nome:
-                cel2.font = Font(bold=True)
-            else:
-                cel2.fill = cor_vazio
-    ws.column_dimensions["A"].width = 10
+                cel2.font = Font(bold=True, size=12)
+                cel2.border = borda
     for j in range(fileiras):
-        ws.column_dimensions[get_column_letter(2 + j)].width = 26
-    ws.row_dimensions[1].height = 22
-    for i in range(colunas):
-        ws.row_dimensions[2 + i].height = 24
+        ws.column_dimensions[get_column_letter(1 + j)].width = 30
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
