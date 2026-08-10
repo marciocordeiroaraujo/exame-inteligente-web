@@ -1389,6 +1389,27 @@ div[class*="st-key-cell_"] > div[class*="st-key-pal_"] {
 }
 div[class*="st-key-cell_"]:hover > div[class*="st-key-del_"] {display: block; top: 3px; right: 5px;}
 div[class*="st-key-cell_"]:hover > div[class*="st-key-pal_"] {display: block; bottom: 3px; right: 5px;}
+
+/* Grade Semanal: visao planilha (coluna de horarios + dias alinhados) */
+.gh-head {
+    font-weight: 800; font-size: .85rem; color: var(--cor-texto);
+    padding: 2px 4px; margin-bottom: 6px; white-space: nowrap;
+}
+.gh-time {
+    background: @@CORP_SOFT@@;
+    border: 1px solid @@CORS@@; border-radius: 10px;
+    padding: 8px 10px; margin-bottom: 6px;
+    height: calc(100% - 6px); min-height: 58px;
+    display: flex; flex-direction: column; justify-content: center;
+    box-sizing: border-box;
+}
+.gh-time-aula {font-weight: 800; font-size: .82rem; color: var(--cor-p); white-space: nowrap;}
+.gh-time-range {font-size: .8rem; font-weight: 600; color: var(--cor-texto); white-space: nowrap;}
+.gh-vazio {
+    border: 1px dashed var(--borda); border-radius: 10px;
+    height: calc(100% - 6px); min-height: 58px; margin-bottom: 6px;
+    background: transparent; box-sizing: border-box;
+}
 /* mantem o botao da paleta ancorado enquanto o popover esta aberto */
 div[class*="st-key-cell_"]:has(div[class*="st-key-pal_"] [aria-expanded="true"]) > div[class*="st-key-pal_"] {
     display: block; bottom: 3px; right: 5px;
@@ -3874,38 +3895,64 @@ def tela_grade_semanal():
             return 0
 
     with st.container(key="grade_dias"):
-        colunas = st.columns(len(dias_preenchidos))
-        for i, dia in enumerate(dias_preenchidos):
-            with colunas[i]:
-                st.markdown(f"#### {dia.split('-')[0]}")
-                itens = sorted([x for x in grade if x["dia"] == dia], key=lambda x: ordem_aula(x["aula"]))
-                for item in itens:
+        horarios = carregar_horarios_aulas()
+        n_dias = len(dias_preenchidos)
+        ratios = [1.1] + [1.9] * n_dias
+        por_dia = {dia: sorted([x for x in grade if x["dia"] == dia],
+                               key=lambda x: ordem_aula(x["aula"])) for dia in dias_preenchidos}
+        num_periodos = max([ordem_aula(x["aula"]) for x in grade], default=1)
+
+        def range_periodo(num):
+            h = horarios.get(str(num))
+            if h and h.get("inicio") and h.get("fim"):
+                return f'{h["inicio"]} - {h["fim"]}'
+            return ""
+
+        colunas = st.columns(ratios)
+        colunas[0].markdown('<div class="gh-head">Horário</div>', unsafe_allow_html=True)
+        for j, dia in enumerate(dias_preenchidos, start=1):
+            colunas[j].markdown(
+                f'<div class="gh-head">{esc(dia.split("-")[0])}</div>',
+                unsafe_allow_html=True)
+
+        for num in range(1, num_periodos + 1):
+            colunas = st.columns(ratios)
+            colunas[0].markdown(
+                f'<div class="gh-time"><div class="gh-time-aula">{esc(f"{num}ª Aula")}</div>'
+                f'<div class="gh-time-range">{esc(range_periodo(num))}</div></div>',
+                unsafe_allow_html=True)
+            for j, dia in enumerate(dias_preenchidos, start=1):
+                item = next((x for x in por_dia[dia] if ordem_aula(x["aula"]) == num), None)
+                if item is None:
+                    colunas[j].markdown('<div class="gh-vazio"></div>', unsafe_allow_html=True)
+                else:
                     cor_val = item.get("cor") or ""
                     cor_hex = dict(CORES_AULA).get(cor_val, cor_val if cor_val.startswith("#") else "")
                     cor_style = f' style="background:{cor_hex}"' if cor_hex else ""
                     cor_cls = " gcell-colorido" if cor_hex else ""
-                    with st.container(key=f"cell_{item['id']}"):
-                        st.markdown(
-                            f'<div class="gcell{cor_cls}"{cor_style}>'
-                            f'<div class="gcell-aula">{item["aula"]}</div>'
-                            f'<div class="gcell-turma">{item["turma"]}</div>'
-                            f'<div class="gcell-disc">{item.get("disciplina","Geral")}</div></div>',
-                            unsafe_allow_html=True)
-                        if st.button("✕", key=f"del_{item['id']}", help="Remover este horario"):
-                            grade = [g for g in grade if g.get("id") != item["id"]]
-                            salvar_grade(grade)
-                            st.rerun()
-                        with st.popover("🎨", key=f"pal_{item['id']}", help="Trocar a cor"):
-                            cols = st.columns(4)
-                            for i, (nome, hex_cor) in enumerate(CORES_AULA):
-                                with cols[i % 4]:
-                                    if st.button("", key=f"gc_{item['id']}_{nome}",
-                                                 help=nome, use_container_width=True):
-                                        for g in grade:
-                                            if g.get("id") == item["id"]:
-                                                g["cor"] = nome
-                                        salvar_grade(grade)
-                                        st.rerun()
+                    with colunas[j]:
+                        with st.container(key=f"cell_{item['id']}"):
+                            st.markdown(
+                                f'<div class="gcell{cor_cls}"{cor_style}>'
+                                f'<div class="gcell-aula">{item["aula"]}</div>'
+                                f'<div class="gcell-turma">{item["turma"]}</div>'
+                                f'<div class="gcell-disc">{item.get("disciplina","Geral")}</div></div>',
+                                unsafe_allow_html=True)
+                            if st.button("✕", key=f"del_{item['id']}", help="Remover este horario"):
+                                grade = [g for g in grade if g.get("id") != item["id"]]
+                                salvar_grade(grade)
+                                st.rerun()
+                            with st.popover("🎨", key=f"pal_{item['id']}", help="Trocar a cor"):
+                                cols = st.columns(4)
+                                for i, (nome, hex_cor) in enumerate(CORES_AULA):
+                                    with cols[i % 4]:
+                                        if st.button("", key=f"gc_{item['id']}_{nome}",
+                                                     help=nome, use_container_width=True):
+                                            for g in grade:
+                                                if g.get("id") == item["id"]:
+                                                    g["cor"] = nome
+                                            salvar_grade(grade)
+                                            st.rerun()
 
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
