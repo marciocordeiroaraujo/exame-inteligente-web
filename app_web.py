@@ -1775,9 +1775,23 @@ hr {margin: .7rem 0; border-color: var(--borda);}
         font-size: .62rem !important;
         margin: 0 !important;
     }
-    /* Grade Semanal: 2 dias por linha em telas pequenas */
-    div[class*="st-key-grade_dias"] div[data-testid="stColumn"] {
-        flex: 1 1 45% !important; min-width: 45% !important; width: auto !important;
+    /* Grade Semanal em telas pequenas: vira uma tabela que rola na horizontal
+       (em vez de empilhar as colunas na vertical / baguncar o layout) */
+    div[class*="st-key-grade_dias"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px;
+    }
+    div[class*="st-key-grade_dias"] > div[data-testid="stLayoutWrapper"] {
+        min-width: 760px !important;
+    }
+    div[class*="st-key-grade_dias"] > div[data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+    }
+    div[class*="st-key-grade_dias"] > div[data-testid="stLayoutWrapper"] [data-testid="stColumn"] {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        width: auto !important;
     }
     /* Abas Entrar/Criar do login lado a lado */
     div[class*="st-key-login_card"] div[data-testid="stColumn"] {
@@ -4064,6 +4078,17 @@ def tela_grade_semanal():
             return int(str(aula).split("a")[0])
         except Exception:
             return 0
+
+    # No celular a grade vira uma tabela com rolagem horizontal; a largura
+    # e proporcional ao numero de dias preenchidos (1 coluna de horarios +
+    # ~170px por dia). Nao afeta o desktop (sempre dentro da media query).
+    largura_grade_mobile = 140 + len(dias_preenchidos) * 175
+    st.markdown(
+        f'<style>@media (max-width: 720px){{'
+        f'div[class*="st-key-grade_dias"] > div[data-testid="stLayoutWrapper"]'
+        f'{{min-width:{largura_grade_mobile}px !important;}}'
+        f'}}</style>',
+        unsafe_allow_html=True)
 
     with st.container(key="grade_dias"):
         horarios = carregar_horarios_aulas()
