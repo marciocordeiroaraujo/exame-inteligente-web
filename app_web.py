@@ -3786,9 +3786,11 @@ def _form_horarios_aulas(max_aulas):
             fim = atual.get("fim") or horario_padrao_aula(num)[1]
             c1, c2 = st.columns(2)
             t_inicio.append(c1.time_input(f"{num}ª aula",
-                                          value=hora_para_time(ini), key=f"ha_ini_{num}"))
+                                          value=hora_para_time(ini), key=f"ha_ini_{num}",
+                                          step=timedelta(minutes=5)))
             t_fim.append(c2.time_input("até",
-                                       value=hora_para_time(fim), key=f"ha_fim_{num}"))
+                                       value=hora_para_time(fim), key=f"ha_fim_{num}",
+                                       step=timedelta(minutes=5)))
         salvo = st.form_submit_button("Salvar horários", use_container_width=True)
     if salvo:
         novos = {}
