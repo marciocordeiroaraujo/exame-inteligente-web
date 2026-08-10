@@ -1285,6 +1285,31 @@ div[class*="st-key-mover_"] [data-testid="stPopoverButton"]:hover {
     background: @@CORP_SOFT@@; color: var(--cor-p); border-color: var(--cor-p) !important;
 }
 
+/* Topo de Turmas e Alunos: botoes popover da 1a linha (Turma e Adicionar Alunos) */
+div[class*="st-key-pop_turmas"] [data-testid="stPopoverButton"],
+div[class*="st-key-pop_adicionar"] [data-testid="stPopoverButton"] {
+    width: 100%; height: 46px;
+    border-radius: 12px; padding: 0 14px !important;
+    font-weight: 700; font-size: 1rem;
+    border: 1.5px solid var(--borda) !important;
+    background: var(--card-bg) !important; color: var(--cor-texto) !important;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    transition: all .15s ease;
+}
+div[class*="st-key-pop_turmas"] [data-testid="stPopoverButton"]:hover {
+    border-color: var(--cor-p) !important; color: var(--cor-p) !important;
+    background: @@CORP_SOFT@@ !important;
+}
+div[class*="st-key-pop_adicionar"] [data-testid="stPopoverButton"] {
+    background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
+    border: none !important; color: @@BTN@@ !important;
+}
+div[class*="st-key-pop_adicionar"] [data-testid="stPopoverButton"]:hover {
+    background: linear-gradient(135deg, @@CORP@@, @@CORP_DEEP@@) !important;
+    color: @@BTN@@ !important; filter: brightness(1.06);
+}
+
 /* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
    com borda superior colorida em cada campo e fundo branco puro. */
 @media (min-width: 769px) {
@@ -4027,103 +4052,111 @@ def tela_turmas():
         st.session_state["turma_selecionada"] = turmas_grade[0]
     turma_atual = st.session_state["turma_selecionada"]
 
-    col_menu, col_conteudo = st.columns([1, 2.6])
+    qtd_atual = len(dados_turmas.get(turma_atual, []))
 
-    with col_menu:
-        with st.container(key="card_turmas_menu"):
-            st.markdown("**Suas Turmas**")
-            for turma in turmas_grade:
-                qtd = len(dados_turmas.get(turma, []))
-                ativa = turma == turma_atual
-                if st.button(f"{turma}  ({qtd} alunos)", key=f"turma_{turma}",
-                             type="primary" if ativa else "secondary",
-                             use_container_width=True):
-                    st.session_state["turma_selecionada"] = turma
+    with st.container(key="painel_turma_top"):
+        c_turmas, c_add = st.columns([1.5, 1.2])
+        with c_turmas:
+            with st.popover(f"Turma: {turma_atual}  ({qtd_atual} alunos)",
+                            key="pop_turmas", use_container_width=True):
+                st.markdown("**Suas Turmas**")
+                for turma in turmas_grade:
+                    qtd = len(dados_turmas.get(turma, []))
+                    ativa = turma == turma_atual
+                    if st.button(f"{turma}  ({qtd} alunos)", key=f"turma_{turma}",
+                                 type="primary" if ativa else "secondary",
+                                 use_container_width=True):
+                        st.session_state["turma_selecionada"] = turma
+                        st.rerun()
+        with c_add:
+            with st.popover("Adicionar Alunos", key="pop_adicionar",
+                            use_container_width=True):
+                arquivo = st.file_uploader(
+                    "Importar alunos (Excel/CSV/TXT)",
+                    type=["xlsx", "xls", "csv", "txt"], key="imp_alunos")
+                if arquivo is not None:
+                    resultado = processar_arquivo_alunos(arquivo, turma_atual, dados_turmas)
+                    st.session_state["imp_limpar"] = True
+                    st.session_state["imp_info"] = resultado
                     st.rerun()
-
-    with col_conteudo:
-        st.markdown(f"### Alunos da turma: {turma_atual}")
-
-        if st.session_state.get("confirmar_limpar_turma") == turma_atual:
-            st.warning(f"Tem certeza que deseja remover TODOS os "
-                       f"{len(dados_turmas.get(turma_atual, []))} alunos da turma {turma_atual}?")
-            c1, c2 = st.columns(2)
-            if c1.button("Sim, excluir todos", type="primary"):
-                dados_turmas[turma_atual] = []
-                salvar_turmas(dados_turmas)
-                st.session_state["confirmar_limpar_turma"] = None
-                st.rerun()
-            if c2.button("Cancelar"):
-                st.session_state["confirmar_limpar_turma"] = None
-                st.rerun()
-
-        arquivo = st.file_uploader("Importar alunos (Excel/CSV/TXT)", type=["xlsx", "xls", "csv", "txt"],
-                                   key="imp_alunos")
-        if arquivo is not None:
-            resultado = processar_arquivo_alunos(arquivo, turma_atual, dados_turmas)
-            st.session_state["imp_limpar"] = True
-            st.session_state["imp_info"] = resultado
-            st.rerun()
-
-        l_add, l_limpar = st.columns([2.4, 1])
-        novo_aluno = l_add.text_input("Nome do aluno", placeholder="Ex: Ana Clara", key="novo_aluno")
-        c1, c2 = st.columns(2)
-        if c1.button("+ Adicionar aluno", type="primary", use_container_width=True):
-            nome = normalizar_nome(novo_aluno)
-            if not nome:
-                st.error("Digite o nome do aluno.")
-            elif nome.lower() in {normalizar_nome(a).lower() for a in dados_turmas.get(turma_atual, [])}:
-                st.warning("Este aluno ja esta cadastrado nesta turma.")
-            else:
-                dados_turmas.setdefault(turma_atual, []).append(nome)
-                salvar_turmas(dados_turmas)
-                st.rerun()
-        if c2.button("Excluir todos", use_container_width=True):
-            st.session_state["confirmar_limpar_turma"] = turma_atual
-            st.rerun()
-
-        alunos = [normalizar_nome(a) for a in dados_turmas.get(turma_atual, [])]
-        alunos = sorted([a for a in alunos if a], key=lambda x: x.lower())
-        vistos, alunos_unicos = set(), []
-        for a in alunos:
-            chave = a.lower()
-            if chave not in vistos:
-                vistos.add(chave)
-                alunos_unicos.append(a)
-        alunos = alunos_unicos
-        if not alunos:
-            st.caption("Nenhum aluno cadastrado nesta turma ainda.")
-        else:
-            with st.container(key="lista_alunos"):
-                for i, aluno in enumerate(alunos, 1):
-                    c1, c2, c3 = st.columns([6, 1, 1])
-                    c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
-                                unsafe_allow_html=True)
-                    with c2.popover("Mover", key=f"mover_{turma_atual}_{i}",
-                                    help="Mover para outra turma"):
-                        outras = [t for t in turmas_grade if t != turma_atual]
-                        if not outras:
-                            st.caption("Nao ha outra turma cadastrada.")
-                        else:
-                            destino = st.selectbox("Mover para", outras,
-                                                   key=f"mv_dest_{turma_atual}_{i}")
-                            if st.button("Mover aluno", key=f"mv_ok_{turma_atual}_{i}",
-                                         use_container_width=True):
-                                alvo = aluno.lower()
-                                dados_turmas[turma_atual] = [
-                                    a for a in dados_turmas[turma_atual]
-                                    if normalizar_nome(a).lower() != alvo]
-                                dados_turmas.setdefault(destino, []).append(aluno)
-                                salvar_turmas(dados_turmas)
-                                st.session_state["turma_selecionada"] = destino
-                                st.rerun()
-                    if c3.button("x", key=f"aluno_{turma_atual}_{i}", help="Excluir aluno"):
-                        alvo = aluno.lower()
-                        dados_turmas[turma_atual] = [
-                            a for a in dados_turmas[turma_atual]
-                            if normalizar_nome(a).lower() != alvo]
+                novo_aluno = st.text_input("Nome do aluno",
+                                           placeholder="Ex: Ana Clara",
+                                           key="novo_aluno")
+                if st.button("+ Adicionar aluno", type="primary",
+                             use_container_width=True):
+                    nome = normalizar_nome(novo_aluno)
+                    if not nome:
+                        st.error("Digite o nome do aluno.")
+                    elif nome.lower() in {normalizar_nome(a).lower()
+                                          for a in dados_turmas.get(turma_atual, [])}:
+                        st.warning("Este aluno ja esta cadastrado nesta turma.")
+                    else:
+                        dados_turmas.setdefault(turma_atual, []).append(nome)
                         salvar_turmas(dados_turmas)
                         st.rerun()
+                st.divider()
+                if st.button("Excluir todos os alunos desta turma",
+                             use_container_width=True):
+                    st.session_state["confirmar_limpar_turma"] = turma_atual
+                    st.rerun()
+
+    st.markdown(f"### Alunos da turma: {turma_atual}")
+
+    if st.session_state.get("confirmar_limpar_turma") == turma_atual:
+        st.warning(f"Tem certeza que deseja remover TODOS os "
+                   f"{len(dados_turmas.get(turma_atual, []))} alunos da turma {turma_atual}?")
+        c1, c2 = st.columns(2)
+        if c1.button("Sim, excluir todos", type="primary"):
+            dados_turmas[turma_atual] = []
+            salvar_turmas(dados_turmas)
+            st.session_state["confirmar_limpar_turma"] = None
+            st.rerun()
+        if c2.button("Cancelar"):
+            st.session_state["confirmar_limpar_turma"] = None
+            st.rerun()
+
+    alunos = [normalizar_nome(a) for a in dados_turmas.get(turma_atual, [])]
+    alunos = sorted([a for a in alunos if a], key=lambda x: x.lower())
+    vistos, alunos_unicos = set(), []
+    for a in alunos:
+        chave = a.lower()
+        if chave not in vistos:
+            vistos.add(chave)
+            alunos_unicos.append(a)
+    alunos = alunos_unicos
+    if not alunos:
+        st.caption("Nenhum aluno cadastrado nesta turma ainda.")
+    else:
+        with st.container(key="lista_alunos"):
+            for i, aluno in enumerate(alunos, 1):
+                c1, c2, c3 = st.columns([6, 1, 1])
+                c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
+                            unsafe_allow_html=True)
+                with c2.popover("Mover", key=f"mover_{turma_atual}_{i}",
+                                help="Mover para outra turma"):
+                    outras = [t for t in turmas_grade if t != turma_atual]
+                    if not outras:
+                        st.caption("Nao ha outra turma cadastrada.")
+                    else:
+                        destino = st.selectbox("Mover para", outras,
+                                               key=f"mv_dest_{turma_atual}_{i}")
+                        if st.button("Mover aluno", key=f"mv_ok_{turma_atual}_{i}",
+                                     use_container_width=True):
+                            alvo = aluno.lower()
+                            dados_turmas[turma_atual] = [
+                                a for a in dados_turmas[turma_atual]
+                                if normalizar_nome(a).lower() != alvo]
+                            dados_turmas.setdefault(destino, []).append(aluno)
+                            salvar_turmas(dados_turmas)
+                            st.session_state["turma_selecionada"] = destino
+                            st.rerun()
+                if c3.button("x", key=f"aluno_{turma_atual}_{i}", help="Excluir aluno"):
+                    alvo = aluno.lower()
+                    dados_turmas[turma_atual] = [
+                        a for a in dados_turmas[turma_atual]
+                        if normalizar_nome(a).lower() != alvo]
+                    salvar_turmas(dados_turmas)
+                    st.rerun()
 
 def processar_arquivo_alunos(arquivo, turma_atual, dados_turmas):
     nome_arq = arquivo.name.lower()
