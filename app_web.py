@@ -2169,15 +2169,16 @@ section[data-testid="stSidebar"] .logo-aba img {
     filter: drop-shadow(0 2px 8px rgba(139,92,246,0.35));
 }
 /* Logo Stitch (quadrada): mantem a MESMA AREA ocupada da logo anterior
-   (735x296 -> 124px de largura). Nova: largura = sqrt(area) em cada faixa. */
+   (735x296 -> 124px de largura). Nova: largura = sqrt(area) em cada faixa.
+   +25% em relacao a area original. */
 section[data-testid="stSidebar"] .logo-aba.logo-stitch img {
-    width: 79px !important;
+    width: 99px !important;
 }
 @media (max-height: 900px) {
-    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 61px !important; }
+    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 76px !important; }
 }
 @media (max-height: 780px) {
-    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 53px !important; }
+    section[data-testid="stSidebar"] .logo-aba.logo-stitch img { width: 66px !important; }
 }
 section[data-testid="stSidebar"] .nav-secao {
     color: #9ca3af !important;
