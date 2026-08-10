@@ -4105,7 +4105,6 @@ def _grade_mapeamento_inicial(layout, fileiras, colunas, alunos):
 
 
 def tela_mapeamento():
-    st.markdown("## Mapeamento de Sala")
     grade = carregar_grade()
     turmas_grade = sorted(list(set(i["turma"] for i in grade)))
     if not turmas_grade:
@@ -4118,25 +4117,51 @@ def tela_mapeamento():
     if ("map_turma" not in st.session_state
             or st.session_state["map_turma"] not in turmas_grade):
         st.session_state["map_turma"] = turmas_grade[0]
-
-    c_t, c_f, c_c = st.columns(3)
-    turma = c_t.selectbox("Turma", turmas_grade, key="map_turma")
-    atual = mapeamentos.get(turma) or {}
+    turma = st.session_state["map_turma"]
 
     if st.session_state.get("map_turma_ant") != turma:
         st.session_state.pop("map_fileiras", None)
         st.session_state.pop("map_colunas", None)
         st.session_state["map_turma_ant"] = turma
 
-    fileiras = int(c_f.number_input("Quantidade de fileiras", 1, 12,
-                                    value=int(atual.get("fileiras", 4)),
-                                    step=1, key="map_fileiras"))
-    colunas = int(c_c.number_input("Carteiras por fileira", 1, 12,
-                                   value=int(atual.get("colunas", 5)),
-                                   step=1, key="map_colunas"))
+    atual = mapeamentos.get(turma) or {}
+    if "map_fileiras" not in st.session_state:
+        st.session_state["map_fileiras"] = int(atual.get("fileiras", 4))
+    if "map_colunas" not in st.session_state:
+        st.session_state["map_colunas"] = int(atual.get("colunas", 5))
+
+    fileiras_eff = int(st.session_state["map_fileiras"])
+    colunas_eff = int(st.session_state["map_colunas"])
 
     alunos = [normalizar_nome(a) for a in dados_turmas.get(turma, [])]
     alunos = sorted({a for a in alunos if a}, key=lambda x: x.lower())
+    grade_inicial = _grade_mapeamento_inicial(atual, fileiras_eff, colunas_eff,
+                                              alunos)
+
+    c_titulo, c_export = st.columns([4.5, 1], vertical_alignment="center")
+    with c_titulo:
+        st.markdown("## Mapeamento de Sala")
+    with c_export:
+        with st.popover("", icon=":material/print:", key="export_mapa_pop",
+                        help="Exportar mapa de sala para Excel"):
+            st.markdown("**Exportar mapa de sala**")
+            cor_p, cor_s = cores_marca()
+            bytes_excel = gerar_excel_mapeamento(
+                turma, fileiras_eff, colunas_eff, grade_inicial, cor_p, cor_s)
+            st.download_button("Baixar planilha (.xlsx)", data=bytes_excel,
+                               file_name=f"mapa_sala_{turma}.xlsx",
+                               mime="application/vnd.openxmlformats-"
+                                    "officedocument.spreadsheetml.sheet",
+                               use_container_width=True)
+
+    c_t, c_f, c_c = st.columns(3)
+    turma = c_t.selectbox("Turma", turmas_grade, key="map_turma")
+    fileiras = int(c_f.number_input("Quantidade de fileiras", 1, 12,
+                                    value=fileiras_eff, step=1,
+                                    key="map_fileiras"))
+    colunas = int(c_c.number_input("Carteiras por fileira", 1, 12,
+                                   value=colunas_eff, step=1,
+                                   key="map_colunas"))
 
     if not alunos:
         st.warning("Esta turma nao possui alunos cadastrados. "
@@ -4181,6 +4206,61 @@ def tela_mapeamento():
 def _sanear_aba(nome):
     nome = re.sub(r'[\\/*?:\[\]]', "", str(nome)).strip()
     return nome[:31] or "Turma"
+
+
+def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
+    """Gera o mapa de sala (fileiras em colunas verticais) como planilha
+    estilizada: cabecalho com a cor da marca, bordas e separacao entre nomes."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = _sanear_aba(turma) or "Mapa"
+    hex_p = (cor_p or "#1F538D").lstrip("#")[:6]
+    cor_topo = PatternFill(start_color=hex_p, end_color=hex_p,
+                           fill_type="solid")
+    cor_rot = PatternFill(start_color="EEF0F6", end_color="EEF0F6",
+                          fill_type="solid")
+    cor_vazio = PatternFill(start_color="F7F8FB", end_color="F7F8FB",
+                            fill_type="solid")
+    borda = Border(*[Side(style="thin", color="C9CFDD")] * 4)
+    alinh = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    ws["A1"] = "Carteira"
+    ws["A1"].fill = cor_topo
+    ws["A1"].font = Font(bold=True, color="FFFFFF")
+    ws["A1"].alignment = alinh
+    ws["A1"].border = borda
+    for j in range(fileiras):
+        cel = ws.cell(row=1, column=2 + j, value=f"F{j + 1}")
+        cel.fill = cor_topo
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.alignment = alinh
+        cel.border = borda
+    for i in range(colunas):
+        cel = ws.cell(row=2 + i, column=1, value=f"C{i + 1}")
+        cel.fill = cor_rot
+        cel.alignment = alinh
+        cel.border = borda
+        cel.font = Font(bold=True)
+        for j in range(fileiras):
+            nome = None
+            if j < len(grade) and i < len(grade[j]):
+                nome = grade[j][i]
+            cel2 = ws.cell(row=2 + i, column=2 + j, value=nome or "")
+            cel2.alignment = alinh
+            cel2.border = borda
+            if nome:
+                cel2.font = Font(bold=True)
+            else:
+                cel2.fill = cor_vazio
+    ws.column_dimensions["A"].width = 10
+    for j in range(fileiras):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 26
+    ws.row_dimensions[1].height = 22
+    for i in range(colunas):
+        ws.row_dimensions[2 + i].height = 24
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def gerar_excel_alunos(dados_turmas, turmas_sel):
