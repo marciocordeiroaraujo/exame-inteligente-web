@@ -1248,7 +1248,8 @@ div[class*="st-key-lista_alunos"] div[data-testid="stMarkdownContainer"] p {
     font-size: .72rem; font-weight: 700; color: var(--cor-cinza);
     letter-spacing: .03em;
 }
-div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child {
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child,
+div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2) {
     display: flex; align-items: center; justify-content: flex-end;
 }
 div[class*="st-key-aluno_"] button {
@@ -1259,6 +1260,15 @@ div[class*="st-key-aluno_"] button {
 }
 div[class*="st-key-aluno_"] button:hover {
     background: #fee2e2; color: #b91c1c; border-color: #fca5a5;
+}
+div[class*="st-key-mover_"] [data-testid="stPopoverButton"] {
+    min-width: 34px; height: 34px; padding: 0 6px !important;
+    border-radius: 9px; border: 1px solid var(--borda) !important;
+    background: transparent; color: var(--cor-p); font-weight: 600;
+    transition: all .15s ease;
+}
+div[class*="st-key-mover_"] [data-testid="stPopoverButton"]:hover {
+    background: @@CORP_SOFT@@; color: var(--cor-p); border-color: var(--cor-p) !important;
 }
 
 /* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
@@ -4072,16 +4082,34 @@ def tela_turmas():
         else:
             with st.container(key="lista_alunos"):
                 for i, aluno in enumerate(alunos, 1):
-                    c1, c2 = st.columns([6, 1])
+                    c1, c2, c3 = st.columns([6, 1, 1])
                     c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
                                 unsafe_allow_html=True)
-                    if c2.button("x", key=f"aluno_{turma_atual}_{i}"):
+                    if c2.button("x", key=f"aluno_{turma_atual}_{i}", help="Excluir aluno"):
                         alvo = aluno.lower()
                         dados_turmas[turma_atual] = [
                             a for a in dados_turmas[turma_atual]
                             if normalizar_nome(a).lower() != alvo]
                         salvar_turmas(dados_turmas)
                         st.rerun()
+                    with c3.popover("Mover", key=f"mover_{turma_atual}_{i}",
+                                    help="Mover para outra turma"):
+                        outras = [t for t in turmas_grade if t != turma_atual]
+                        if not outras:
+                            st.caption("Nao ha outra turma cadastrada.")
+                        else:
+                            destino = st.selectbox("Mover para", outras,
+                                                   key=f"mv_dest_{turma_atual}_{i}")
+                            if st.button("Mover aluno", key=f"mv_ok_{turma_atual}_{i}",
+                                         use_container_width=True):
+                                alvo = aluno.lower()
+                                dados_turmas[turma_atual] = [
+                                    a for a in dados_turmas[turma_atual]
+                                    if normalizar_nome(a).lower() != alvo]
+                                dados_turmas.setdefault(destino, []).append(aluno)
+                                salvar_turmas(dados_turmas)
+                                st.session_state["turma_selecionada"] = destino
+                                st.rerun()
 
 def processar_arquivo_alunos(arquivo, turma_atual, dados_turmas):
     nome_arq = arquivo.name.lower()
