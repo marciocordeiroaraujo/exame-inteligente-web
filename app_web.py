@@ -2784,22 +2784,35 @@ def _html_js_movel(usuario=None, token=None, limpar=False):
 
   function inXScroll(e) {
     if (!e.target || !e.target.closest) return false;
-    return !!e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
+    return !!e.target.closest('.cal-scroll, div[class*="st-key-grade_dias"], [data-testid="stDataFrame"], [data-testid="stTable"]');
   }
 
-  // Abrir do gesto em qualquer lugar, exceto dentro de areas de rolagem
-  // horizontal que ainda tenham conteudo para tras (o gesto rola o conteudo).
-  function canOpenHere(e) {
-    if (!e.target || !e.target.closest) return true;
-    var sc = e.target.closest('.cal-scroll, [data-testid="stDataFrame"], [data-testid="stTable"]');
-    if (!sc) return true;
-    return sc.scrollLeft <= 2;
+  // O gesto de ABRIR so vale se o toque comecou no indicador (alca #ei-edge
+  // na borda esquerda ou no botao flutuante #ei-mobile-menu) e arrastou para
+  // a direita. Fora do indicador o dedo rola o conteudo normalmente.
+  function touchOnIndicator(t) {
+    var edge = el('#ei-edge');
+    if (edge && getComputedStyle(edge).display !== 'none') {
+      var r = edge.getBoundingClientRect();
+      if (t.clientX >= r.left && t.clientX <= r.right &&
+          t.clientY >= r.top && t.clientY <= r.bottom) return true;
+    }
+    var fab = el('#ei-mobile-menu');
+    if (fab && getComputedStyle(fab).display !== 'none') {
+      var r2 = fab.getBoundingClientRect();
+      if (t.clientX >= r2.left && t.clientX <= r2.right &&
+          t.clientY >= r2.top && t.clientY <= r2.bottom) return true;
+    }
+    return false;
   }
 
   function onStart(e) {
     if (!isMobile() || e.touches.length !== 1) return;
     var t = e.touches[0];
     drag = { sx: t.clientX, sy: t.clientY, dx: 0, dy: 0, mode: null, w: sbWidth() };
+    // O gesto de ABRIR so vale se o toque COMECOU no indicador
+    // (alca #ei-edge na borda esquerda ou botao flutuante #ei-mobile-menu).
+    drag.fromIndicator = touchOnIndicator(t);
   }
   function onMove(e) {
     if (!drag) return;
@@ -2811,7 +2824,7 @@ def _html_js_movel(usuario=None, token=None, limpar=False):
     if (!drag.mode) {
       var horiz = Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15;
       if (!horiz) return;
-      if (!open && canOpenHere(e)) drag.mode = 'open';
+      if (!open && drag.fromIndicator) drag.mode = 'open';
       else if (open && !inXScroll(e)) drag.mode = 'close';
       else { drag = null; return; }
     }
