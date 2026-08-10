@@ -1310,6 +1310,28 @@ div[class*="st-key-pop_adicionar"] [data-testid="stPopoverButton"]:hover {
     color: @@BTN@@ !important; filter: brightness(1.06);
 }
 
+/* Botao de exportar (impressora) ao lado do titulo "Turmas e Alunos" */
+div[class*="st-key-export_alunos_pop"] { margin-left: auto; width: fit-content; }
+div[class*="st-key-export_alunos_pop"] [data-testid="stPopoverButton"] {
+    width: 42px; height: 42px; min-width: 42px;
+    border-radius: 10px; padding: 0 !important;
+    border: 1.5px solid var(--borda) !important;
+    background: var(--card-bg) !important; color: var(--cor-p) !important;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    transition: all .15s ease;
+}
+div[class*="st-key-export_alunos_pop"] [data-testid="stPopoverButton"]:hover {
+    background: @@CORP_SOFT@@ !important; color: var(--cor-p) !important;
+    border-color: var(--cor-p) !important;
+}
+div[class*="st-key-export_alunos_pop"] [data-testid="stPopoverButton"] [aria-hidden="true"] {
+    display: none;
+}
+div[class*="st-key-export_alunos_pop"] [data-testid="stPopoverButton"] [data-testid="stIconMaterial"] {
+    font-size: 1.25rem;
+}
+
 /* Dashboard (somente telas >= 769px): grade que preenche o espaco visivel,
    com borda superior colorida em cada campo e fundo branco puro. */
 @media (min-width: 769px) {
@@ -4029,19 +4051,41 @@ def tela_grade_semanal():
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
 # =====================================================================
+def _sanear_aba(nome):
+    nome = re.sub(r'[\\/*?:\[\]]', "", str(nome)).strip()
+    return nome[:31] or "Turma"
+
+
+def gerar_excel_alunos(dados_turmas, turmas_sel):
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    cor_topo = PatternFill(start_color="1F539D", end_color="1F539D",
+                           fill_type="solid")
+    usado = set()
+    for turma in turmas_sel:
+        aba = _sanear_aba(turma)
+        if aba in usado:
+            aba = f"{aba[:28]}_{len(usado) + 1}"
+        usado.add(aba)
+        ws = wb.create_sheet(title=aba)
+        ws.append(["Num", "Nome"])
+        for cel in ws[1]:
+            cel.fill = cor_topo
+            cel.font = Font(bold=True, color="FFFFFF")
+        ws.column_dimensions["A"].width = 6
+        ws.column_dimensions["B"].width = 42
+        nomes = sorted({normalizar_nome(a) for a in dados_turmas.get(turma, []) if a},
+                       key=lambda x: x.lower())
+        for i, n in enumerate(nomes, 1):
+            ws.append([i, n])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def tela_turmas():
-    st.markdown("## Turmas e Alunos")
     grade = carregar_grade()
     dados_turmas = carregar_turmas()
-
-    info_imp = st.session_state.pop("imp_info", None)
-    if st.session_state.pop("imp_limpar", False):
-        st.session_state.pop("imp_alunos", None)
-    if info_imp:
-        if info_imp[0] == "ok":
-            st.success(info_imp[1])
-        else:
-            st.warning(info_imp[1])
 
     turmas_grade = sorted(list(set([i["turma"] for i in grade])))
     if not turmas_grade:
@@ -4051,6 +4095,41 @@ def tela_turmas():
     if "turma_selecionada" not in st.session_state or st.session_state["turma_selecionada"] not in turmas_grade:
         st.session_state["turma_selecionada"] = turmas_grade[0]
     turma_atual = st.session_state["turma_selecionada"]
+
+    c_titulo, c_export = st.columns([4.5, 1], vertical_alignment="center")
+    with c_titulo:
+        st.markdown("## Turmas e Alunos")
+    with c_export:
+        with st.popover("", icon=":material/print:", key="export_alunos_pop",
+                        help="Exportar lista de alunos para Excel"):
+            st.markdown("**Exportar alunos para planilha**")
+            tipo = st.radio("O que exportar?",
+                            ["Todas as turmas", "Turmas especificas"],
+                            key="exp_tipo")
+            turmas_sel = turmas_grade
+            if tipo == "Turmas especificas":
+                turmas_sel = st.multiselect("Escolha as turmas",
+                                            turmas_grade,
+                                            default=turmas_grade[:1],
+                                            key="exp_turmas")
+            if not turmas_sel:
+                st.caption("Nenhuma turma selecionada.")
+            else:
+                bytes_excel = gerar_excel_alunos(dados_turmas, turmas_sel)
+                st.download_button("Baixar planilha (.xlsx)", data=bytes_excel,
+                                   file_name="alunos_por_turma.xlsx",
+                                   mime="application/vnd.openxmlformats-"
+                                        "officedocument.spreadsheetml.sheet",
+                                   use_container_width=True)
+
+    info_imp = st.session_state.pop("imp_info", None)
+    if st.session_state.pop("imp_limpar", False):
+        st.session_state.pop("imp_alunos", None)
+    if info_imp:
+        if info_imp[0] == "ok":
+            st.success(info_imp[1])
+        else:
+            st.warning(info_imp[1])
 
     qtd_atual = len(dados_turmas.get(turma_atual, []))
 
