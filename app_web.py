@@ -2214,13 +2214,18 @@ section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] {
     border: 1px solid rgba(255,255,255,0.10) !important;
     border-radius: 12px !important;
     padding: 10px 12px !important;
-    margin: 10px 10px 4px 10px !important;
+    margin: 10px auto 4px auto !important;
+    width: calc(100% - 20px) !important;
+    text-align: center !important;
 }
 section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] hr {
     display: none !important;
 }
 section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] [data-testid="stCaption"] {
     color: #9ca3af !important; font-size: .78rem !important;
+}
+section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] p {
+    text-align: center !important;
 }
 section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] button {
     background-color: transparent !important;
@@ -2231,6 +2236,8 @@ section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] button {
     padding: 4px 10px !important;
     height: auto !important;
     box-shadow: none !important;
+    margin: 4px auto 0 auto !important;
+    max-width: 90% !important;
 }
 section[data-testid="stSidebar"] div[class*="st-key-sb_footer"] button:hover {
     background-color: rgba(255,255,255,0.10) !important;
