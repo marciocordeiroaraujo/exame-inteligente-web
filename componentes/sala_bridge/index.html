@@ -11,6 +11,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
 .piscina{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;min-height:40px;transition:all .15s ease}
 .piscina.over{border-color:var(--cor-p, #7d3fe0);background:rgba(125,63,224,.06)}
 .piscina-rot{font-size:12px;color:#9a9a9a;font-weight:700;margin-right:4px}
+.piscina-hint{font-size:12px;color:#9a9a9a;font-style:italic}
 .grid{display:flex;flex-direction:row;gap:24px;align-items:flex-start;justify-content:center;overflow-x:auto;padding-bottom:8px}
 .fileira{display:flex;flex-direction:column;align-items:center;gap:14px;flex:none}
 .fileira-label{font-size:11px;color:#9a9a9a;font-weight:700;text-align:center;margin-bottom:2px}
@@ -69,6 +70,9 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     if(partes[1].length<=3)return partes.slice(0,3).join(' ');
     return partes.slice(0,2).join(' ');
   }
+  function chave(nome){
+    return String(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  }
   function nomeLongo(nome){
     var partes=String(nome||'').trim().split(/\s+/);
     if(partes.length>=3)return partes.slice(0,3).join(' ');
@@ -98,8 +102,8 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
 
   function render(){
     var naSala={};
-    grade.forEach(function(r){r.forEach(function(n){if(n)naSala[n]=true;});});
-    var fora=alunos.filter(function(n){return !naSala[n];});
+    grade.forEach(function(r){r.forEach(function(n){if(n)naSala[chave(n)]=true;});});
+    var fora=alunos.filter(function(n){return !naSala[chave(n)];});
     var disp=nomesExibicao();
 
     piscinaEl.innerHTML='';
@@ -109,10 +113,13 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
       rot.textContent='Alunos fora da sala:';
       piscinaEl.appendChild(rot);
       fora.forEach(function(n){piscinaEl.appendChild(chip(n,disp[n]));});
-      piscinaEl.style.display='flex';
     }else{
-      piscinaEl.style.display='none';
+      var hint=document.createElement('span');
+      hint.className='piscina-hint';
+      hint.textContent='Nenhum aluno fora da sala. Arraste um nome para fora das carteiras para removê-lo da sala.';
+      piscinaEl.appendChild(hint);
     }
+    piscinaEl.style.display='flex';
 
     gridEl.innerHTML='';
     grade.forEach(function(linha,i){
@@ -198,6 +205,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
   }
 
   function dropFora(){
+    console.log('TRACE_DF dragItem=',JSON.stringify(dragItem));
     if(!dragItem)return;
     if(dragItem.origem==='sala'&&!isNaN(dragItem.ri)&&!isNaN(dragItem.ci)){
       grade[dragItem.ri][dragItem.ci]=null;
@@ -224,10 +232,14 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
   }
 
   var args={};
+  var lastChaveArgs='';
   window.addEventListener('message',function(ev){
     var d=ev.data;
     if(!d||d.type!=='streamlit:render')return;
     args=d.args||{};
+    var novaChave=JSON.stringify(args);
+    var novo=novaChave!==lastChaveArgs;
+    lastChaveArgs=novaChave;
     turma=args.turma||'';
     fileiras=Math.max(1,+args.fileiras||1);
     colunas=Math.max(1,+args.colunas||1);
@@ -235,7 +247,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
     corP=args.cor_principal||'#7d3fe0';
     corS=args.cor_secundaria||'#5b2ea6';
     setCores();
-    grade=gradeInicial();
+    if(novo){grade=gradeInicial();}
     document.getElementById('titulo').textContent='Mapa de sala - Turma '+turma;
     document.getElementById('sub').textContent=fileiras+' fileira(s) x '+colunas+' carteira(s) por fileira';
     render();

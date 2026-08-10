@@ -4086,6 +4086,11 @@ def tela_grade_semanal():
 # =====================================================================
 # 11. TELA: TURMAS E ALUNOS
 # =====================================================================
+def _chave_nome(nome):
+    n = unicodedata.normalize("NFD", str(nome or "").lower())
+    return "".join(c for c in n if not unicodedata.combining(c)).strip()
+
+
 def _grade_mapeamento_inicial(layout, fileiras, colunas, alunos):
     if (layout and layout.get("fileiras") == fileiras
             and layout.get("colunas") == colunas
@@ -4093,7 +4098,9 @@ def _grade_mapeamento_inicial(layout, fileiras, colunas, alunos):
             and len(layout["grade"]) == fileiras
             and all(isinstance(r, list) and len(r) == colunas
                     for r in layout["grade"])):
-        return [list(r) for r in layout["grade"]]
+        por_chave = {_chave_nome(a): a for a in alunos}
+        return [[por_chave.get(_chave_nome(n), n) if n else None
+                 for n in r] for r in layout["grade"]]
     fila = list(alunos)
     grade = []
     for _ in range(fileiras):
