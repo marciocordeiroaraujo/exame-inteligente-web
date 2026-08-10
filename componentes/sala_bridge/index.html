@@ -10,13 +10,13 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
 .sala-sub{font-size:12px;color:#6c757d;margin-bottom:10px}
 .piscina{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;min-height:40px}
 .piscina-rot{font-size:12px;color:#9a9a9a;font-weight:700;margin-right:4px}
-.grid{display:flex;flex-direction:row;gap:16px;align-items:flex-start;overflow-x:auto;padding-bottom:6px}
-.fileira{display:flex;flex-direction:column;align-items:center;gap:10px;flex:none}
+.grid{display:flex;flex-direction:row;gap:24px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+.fileira{display:flex;flex-direction:column;align-items:center;gap:14px;flex:none}
 .fileira-label{font-size:11px;color:#9a9a9a;font-weight:700;text-align:center;margin-bottom:2px}
-.carteiras{display:flex;flex-direction:column;gap:10px}
-.carteira{width:96px;height:60px;border:1.5px dashed #c9cfdd;border-radius:12px;background:#f6f7fb;display:flex;align-items:center;justify-content:center;transition:all .15s ease}
+.carteiras{display:flex;flex-direction:column;gap:16px}
+.carteira{width:108px;height:64px;border:1.5px dashed #c9cfdd;border-radius:12px;background:#f6f7fb;display:flex;align-items:center;justify-content:center;transition:all .15s ease}
 .carteira.over{border-color:var(--cor-p, #7d3fe0);background:rgba(125,63,224,.08)}
-.aluno-card{width:100%;height:100%;border-radius:10px;border:1.5px solid var(--cor-p, #7d3fe0);background:#ffffff;color:var(--cor-p, #7d3fe0);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;cursor:grab;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.aluno-card{width:100%;height:100%;border-radius:10px;border:1.5px solid var(--cor-p, #7d3fe0);background:#ffffff;color:var(--cor-p, #7d3fe0);font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;cursor:grab;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .aluno-card:hover{background:rgba(125,63,224,.06)}
 .aluno-card.dragging{opacity:.4}
 .chip{padding:6px 12px;border-radius:20px;background:rgba(125,63,224,.10);color:var(--cor-p, #7d3fe0);font-size:12px;font-weight:600;cursor:grab;border:1px solid transparent;user-select:none}
@@ -60,6 +60,13 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
   function setCores(){
     document.documentElement.style.setProperty('--cor-p',corP);
     document.documentElement.style.setProperty('--cor-s',corS);
+  }
+
+  function nomeCurto(nome){
+    var partes=String(nome||'').trim().split(/\s+/);
+    if(partes.length<=2)return partes.join(' ');
+    if(partes[1].length<=3)return partes.slice(0,3).join(' ');
+    return partes.slice(0,2).join(' ');
   }
 
   function gradeInicial(){
@@ -112,7 +119,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
         if(nome){
           var card=document.createElement('div');
           card.className='aluno-card';
-          card.textContent=nome;
+          card.textContent=nomeCurto(nome);
           card.setAttribute('draggable','true');
           card.dataset.ri=i;
           card.dataset.ci=j;
@@ -134,7 +141,7 @@ html,body{margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,s
   function chip(nome){
     var c=document.createElement('span');
     c.className='chip';
-    c.textContent=nome;
+    c.textContent=nomeCurto(nome);
     c.setAttribute('draggable','true');
     c.addEventListener('dragstart',function(ev){
       dragItem={nome:nome,origem:'piscina'};

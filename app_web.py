@@ -4208,6 +4208,15 @@ def _sanear_aba(nome):
     return nome[:31] or "Turma"
 
 
+def nome_curto_mapa(nome):
+    partes = [p for p in str(nome or "").strip().split() if p]
+    if len(partes) <= 2:
+        return " ".join(partes)
+    if len(partes[1]) <= 3:
+        return " ".join(partes[:3])
+    return " ".join(partes[:2])
+
+
 def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
     """Gera o mapa de sala (fileiras em colunas verticais) como planilha
     estilizada: cabecalho com a cor da marca, bordas e separacao entre nomes."""
@@ -4245,7 +4254,8 @@ def gerar_excel_mapeamento(turma, fileiras, colunas, grade, cor_p, cor_s):
             nome = None
             if j < len(grade) and i < len(grade[j]):
                 nome = grade[j][i]
-            cel2 = ws.cell(row=2 + i, column=2 + j, value=nome or "")
+            cel2 = ws.cell(row=2 + i, column=2 + j,
+                           value=nome_curto_mapa(nome) if nome else "")
             cel2.alignment = alinh
             cel2.border = borda
             if nome:
