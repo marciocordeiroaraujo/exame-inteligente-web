@@ -4177,6 +4177,8 @@ def tela_mapeamento():
 
     st.caption("Arraste e solte os cartoes para posicionar cada aluno. "
                "Solte sobre um aluno ocupado para trocar de lugar. "
+               "Solte fora das carteiras (na area 'Alunos fora da sala' ou "
+               "no restante da tela) para remover o aluno da sala. "
                "Ao terminar, clique em 'Confirmar Posicoes'.")
 
     grade_inicial = _grade_mapeamento_inicial(atual, fileiras, colunas, alunos)
