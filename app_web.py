@@ -1273,6 +1273,16 @@ div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:nth-last-child(2),
 div[class*="st-key-lista_alunos"] [data-testid="stColumn"]:last-child {
     flex: 0 0 auto; width: auto;
 }
+div[class*="st-key-lista_alunos"] div[data-testid="stHorizontalBlock"] {
+    border-radius: 10px;
+    outline: 1.5px solid transparent;
+    outline-offset: -1px;
+    transition: background .15s ease, outline-color .15s ease;
+}
+div[class*="st-key-lista_alunos"] div[data-testid="stHorizontalBlock"]:hover {
+    background: rgba(128, 128, 128, .06);
+    outline-color: @@COR_BORDA@@;
+}
 div[class*="st-key-aluno_"] button {
     min-width: 34px; height: 34px; padding: 0 !important;
     border-radius: 9px; border: 1px solid var(--borda);
