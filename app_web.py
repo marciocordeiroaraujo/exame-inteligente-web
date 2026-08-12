@@ -4003,21 +4003,35 @@ div[class*="st-key-postit_box_"] {
 }
 div[class*="st-key-postit_actions_"] {
     position: absolute !important;
-    top: 6px !important;
-    right: 6px !important;
+    bottom: 8px !important;
+    right: 8px !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease;
     z-index: 25;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(4px);
-    border-radius: 8px;
-    padding: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    background: transparent !important;
+    display: flex;
+    gap: 4px;
 }
 div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
     opacity: 1;
     pointer-events: auto;
+}
+div[class*="st-key-postit_actions_"] button {
+    background: rgba(0,0,0,0.1) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    font-size: .65rem !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    transition: background 0.15s ease;
+}
+div[class*="st-key-postit_actions_"] button:hover {
+    background: rgba(0,0,0,0.22) !important;
 }
 </style>""", unsafe_allow_html=True)
 
