@@ -4522,7 +4522,21 @@ def gerar_excel_alunos(dados_turmas, turmas_sel):
     return buf.getvalue()
 
 
+@st.dialog("Painel do Aluno")
+def _modal_aluno(aluno, turma):
+    st.markdown(f"### Aluno: **{aluno}**")
+    st.markdown(f"Turma: {turma}")
+    if st.button("Notas", type="primary", use_container_width=True):
+        st.info(f"Visualizando notas de {aluno} na turma {turma}...")
+    if st.button("Fechar", use_container_width=True):
+        st.session_state.pop("aluno_selecionado", None)
+        st.rerun()
+
+
 def tela_turmas():
+    if st.session_state.get("aluno_selecionado"):
+        _modal_aluno(st.session_state["aluno_selecionado"], st.session_state["turma_aluno_selecionado"])
+
     grade = carregar_grade()
     dados_turmas = carregar_turmas()
 
@@ -4648,8 +4662,10 @@ def tela_turmas():
         with st.container(key="lista_alunos"):
             for i, aluno in enumerate(alunos, 1):
                 c1, c2, c3 = st.columns([6, 1, 1])
-                c1.markdown(f'<span class="aluno-num">{i:02d}</span> {aluno}',
-                            unsafe_allow_html=True)
+                if c1.button(f"{i:02d}. {aluno}", key=f"btn_aluno_{turma_atual}_{i}", use_container_width=True):
+                    st.session_state["aluno_selecionado"] = aluno
+                    st.session_state["turma_aluno_selecionado"] = turma_atual
+                    st.rerun()
                 with c2.popover("Mover", key=f"mover_{turma_atual}_{i}",
                                 help="Mover para outra turma"):
                     outras = [t for t in turmas_grade if t != turma_atual]
