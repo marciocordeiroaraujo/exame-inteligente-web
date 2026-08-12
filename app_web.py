@@ -4011,14 +4011,15 @@ div[class*="st-key-postit_actions_"] {
     transition: opacity 0.18s ease;
     z-index: 25;
     background: transparent !important;
-    display: flex;
-    gap: 6px;
-    align-items: center;
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
 }
 div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
     opacity: 1;
     pointer-events: auto;
 }
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button,
 div[class*="st-key-postit_actions_"] button {
     background: transparent !important;
     border: none !important;
@@ -4031,7 +4032,13 @@ div[class*="st-key-postit_actions_"] button {
     color: inherit !important;
     box-shadow: none !important;
     opacity: 0.85;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     transition: opacity 0.15s ease, transform 0.15s ease;
+}
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button svg {
+    display: none !important;
 }
 div[class*="st-key-postit_actions_"] button:hover {
     opacity: 1 !important;
