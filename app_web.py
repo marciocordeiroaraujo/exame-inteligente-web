@@ -5251,22 +5251,27 @@ def tela_notas():
             border-bottom: 1px solid var(--borda);
             padding-bottom: .6rem; margin-bottom: .7rem;
         }
-        /* Botao circular de alternativa A/B/C/D/E */
-        div[class*="st-key-gab_ltr_"] {display: flex; justify-content: center;}
-        div[class*="st-key-gab_ltr_"] button {
+        /* Botao circular de alternativa A/B/C/D/E (gabarito e correcao) */
+        div[class*="st-key-gab_ltr_"], div[class*="st-key-corr_b_"] {
+            display: flex; justify-content: center;
+        }
+        div[class*="st-key-gab_ltr_"] button, div[class*="st-key-corr_b_"] button {
             border-radius: 50% !important; width: 36px !important; height: 36px !important;
             min-width: 0 !important; padding: 0 !important; font-weight: 800 !important;
             font-size: .85rem !important; transition: all .15s ease;
         }
-        div[class*="st-key-gab_ltr_"] button[kind="secondary"] {
+        div[class*="st-key-gab_ltr_"] button[kind="secondary"],
+        div[class*="st-key-corr_b_"] button[kind="secondary"] {
             background: var(--card-bg) !important; border: 1px solid var(--borda) !important;
             color: var(--cor-texto) !important;
         }
-        div[class*="st-key-gab_ltr_"] button[kind="secondary"]:hover {
+        div[class*="st-key-gab_ltr_"] button[kind="secondary"]:hover,
+        div[class*="st-key-corr_b_"] button[kind="secondary"]:hover {
             background: color-mix(in srgb, var(--cor-p) 10%, var(--card-bg)) !important;
             border-color: var(--cor-p) !important;
         }
-        div[class*="st-key-gab_ltr_"] button[kind="primary"] {
+        div[class*="st-key-gab_ltr_"] button[kind="primary"],
+        div[class*="st-key-corr_b_"] button[kind="primary"] {
             background: linear-gradient(135deg, var(--cor-p), var(--cor-pd)) !important;
             border: 1px solid var(--cor-pd) !important; color: #fff !important;
             box-shadow: 0 2px 6px color-mix(in srgb, var(--cor-p) 40%, transparent) !important;
@@ -5274,6 +5279,28 @@ def tela_notas():
         /* Numero da questao */
         .gab-q {font-weight: 800; color: var(--cor-cinza); font-size: .9rem; white-space: nowrap;}
         .gab-q b {color: var(--cor-p);}
+        /* Nome do aluno na correcao */
+        .corr-aluno {
+            font-weight: 800; color: var(--cor-p); font-size: .95rem;
+            margin: .35rem 0 .25rem;
+        }
+        /* Card por aluno no modo detalhado */
+        div[class*="st-key-corr_aluno_card_"] {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--borda) !important;
+            border-radius: 12px !important;
+            padding: .8rem 1rem .6rem !important;
+            margin-bottom: .55rem !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05) !important;
+        }
+        /* Botao salvar da correcao fixo na parte inferior (sticky) */
+        div[class*="st-key-corr_salvar"] {position: sticky; bottom: 12px; z-index: 5;}
+        div[class*="st-key-corr_salvar"] button {
+            background: linear-gradient(135deg, var(--cor-p), var(--cor-pd)) !important;
+            border: 1px solid var(--cor-pd) !important; border-radius: 14px !important;
+            padding: .95rem !important; font-size: 1.05rem !important; font-weight: 800 !important;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--cor-p) 35%, transparent) !important;
+        }
         /* Input do descritor compacto */
         div[class*="st-key-gab_desc_"] input {
             text-align: center !important; font-weight: 700 !important; font-size: .85rem !important;
@@ -5291,11 +5318,15 @@ def tela_notas():
         }
         /* No celular os cards das questoes continuam numa linha compacta */
         @media (max-width: 720px) {
-            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"] {flex-wrap: nowrap !important;}
-            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"],
+            div[class*="st-key-corr_aluno_card_"] div[data-testid="stHorizontalBlock"] {
+                flex-wrap: nowrap !important;
+            }
+            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
+            div[class*="st-key-corr_aluno_card_"] div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
                 flex: 1 1 0 !important; min-width: 0 !important;
             }
-            div[class*="st-key-gab_ltr_"] {flex: 0 0 34px !important;}
+            div[class*="st-key-gab_ltr_"], div[class*="st-key-corr_b_"] {flex: 0 0 34px !important;}
         }
         </style>""", unsafe_allow_html=True)
 
@@ -5404,10 +5435,11 @@ def tela_notas():
             c1, c2 = st.columns([2.5, 1.5])
             av_escolhida = c1.selectbox("Selecione a avaliação", titulos_av, key="av_corrigir")
             modo = c2.radio("Modo de correcao", ["Rapido (Texto)", "Detalhado (Blocos)"],
-                            horizontal=True)
+                            index=1, horizontal=True)
 
             idx = titulos_av.index(av_escolhida)
             av = avaliacoes[idx]
+            aid = av.get("id", idx)
             turma = av["turma"]
             alunos = sorted(dados_turmas.get(turma, []))
             gabarito = av["gabarito"]
@@ -5416,46 +5448,68 @@ def tela_notas():
             if not alunos:
                 st.warning("Esta turma não tem alunos cadastrados.")
             else:
+                LETRAS = ["A", "B", "C", "D", "E"]
+                resp_atuais = {al: av["notas_alunos"].get(al, {}).get("respostas_dadas", "")
+                               for al in alunos}
+
                 if modo == "Rapido (Texto)":
                     st.caption("Dica: digite as respostas seguidas (Ex: ADCBE) na caixa.")
                 else:
-                    st.caption("Modo detalhado: preencha a letra marcada em cada bloco.")
+                    st.caption("Modo detalhado: clique na alternativa marcada por cada aluno.")
 
-                with st.form("form_correcao"):
+                if modo == "Rapido (Texto)":
+                    for aluno in alunos:
+                        st.markdown(f'<div class="corr-aluno">{esc(aluno)}</div>',
+                                    unsafe_allow_html=True)
+                        dados_exist = av["notas_alunos"].get(aluno, {})
+                        st.text_input(
+                            f"Respostas de {aluno} ({qtd_q} questões)",
+                            value=dados_exist.get("respostas_dadas", ""),
+                            key=f"corr_resp_{aid}_{aluno}", label_visibility="collapsed")
+                else:
+                    for aluno in alunos:
+                        with st.container(key=f"corr_aluno_card_{aid}_{aluno}"):
+                            st.markdown(f'<div class="corr-aluno">{esc(aluno)}</div>',
+                                        unsafe_allow_html=True)
+                            antiga = resp_atuais.get(aluno, "")
+                            for i in range(0, qtd_q, 3):
+                                cols = st.columns(3)
+                                for j in range(3):
+                                    qi = i + j
+                                    if qi >= qtd_q:
+                                        break
+                                    with cols[j]:
+                                        r_lbl, r_let = st.columns([1, 3.6],
+                                                                  vertical_alignment="center")
+                                        r_lbl.markdown(
+                                            f'<div class="gab-q">Q<b>{qi + 1:02d}</b></div>',
+                                            unsafe_allow_html=True)
+                                        sub = r_let.columns(len(LETRAS))
+                                        chave_b = f"corr_{aid}_{aluno}_q{qi}"
+                                        atual = st.session_state.get(
+                                            chave_b, antiga[qi] if qi < len(antiga) else "")
+                                        for li, l in enumerate(LETRAS):
+                                            if sub[li].button(
+                                                    l, key=f"corr_b_{aid}_{aluno}_{qi}_{l}",
+                                                    type="primary" if atual == l else "secondary"):
+                                                st.session_state[chave_b] = l
+                                                st.rerun()
+
+                if st.button("Processar Correção Automática e Salvar", type="primary",
+                             use_container_width=True, key="corr_salvar"):
                     dados_entrada = []
                     for aluno in alunos:
-                        st.markdown(f"**{aluno}**")
-                        dados_exist = av["notas_alunos"].get(aluno, {})
                         if modo == "Rapido (Texto)":
-                            c1, c2 = st.columns([3, 1])
-                            resp_txt = c1.text_input(
-                                f"Respostas ({qtd_q} questões)",
-                                value=dados_exist.get("respostas_dadas", ""),
-                                key=f"corr_resp_{aluno}", label_visibility="collapsed")
-                            nota = c2.text_input("Nota", value=str(dados_exist.get("nota_final", "")),
-                                                 key=f"corr_nota_{aluno}",
-                                                 placeholder="auto")
-                            dados_entrada.append((aluno, "rapido", resp_txt, nota, None))
+                            resp = st.session_state.get(f"corr_resp_{aid}_{aluno}", "")
+                            dados_entrada.append((aluno, "rapido", resp, "", None))
                         else:
-                            notas_exist = dados_exist.get("respostas_dadas", "")
-                            blocos = []
-                            cols = st.columns(min(qtd_q, 5))
-                            for qi in range(qtd_q):
-                                val = notas_exist[qi] if qi < len(notas_exist) else ""
-                                with cols[qi % min(qtd_q, 5)]:
-                                    inp = st.text_input(f"Q{qi + 1}", value=val,
-                                                        key=f"corr_{aluno}_q{qi}",
-                                                        max_chars=1)
-                                    blocos.append(inp)
-                            nota = st.text_input("Nota final", key=f"corr_nota_d_{aluno}",
-                                                 value=str(dados_exist.get("nota_final", "")),
-                                                 placeholder="auto")
-                            dados_entrada.append((aluno, "detalhado", None, nota, blocos))
-
-                    enviado = st.form_submit_button("Processar Correcao Automatica e Salvar",
-                                                    type="primary", use_container_width=True)
-                    if enviado:
-                        processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx)
+                            antiga = resp_atuais.get(aluno, "")
+                            letras = [st.session_state.get(
+                                f"corr_{aid}_{aluno}_q{qi}",
+                                antiga[qi] if qi < len(antiga) else "")
+                                for qi in range(qtd_q)]
+                            dados_entrada.append((aluno, "detalhado", None, "", letras))
+                    processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx)
 
     # ---------------- TAB 3: ESTATISTICAS ----------------
     with tab_stats:
@@ -5496,7 +5550,6 @@ def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
     avaliacoes[idx] = av
     salvar_avaliacoes(avaliacoes)
     st.success("Correção automática finalizada e notas salvas!")
-    st.rerun()
 
 # =====================================================================
 # 15. ESTATISTICAS POR DESCRITOR
