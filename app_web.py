@@ -4058,8 +4058,16 @@ div[class*="st-key-postit_actions_"] button:active {
     justify-content: center !important;
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
-div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button svg {
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button svg,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button path,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button polygon,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button span:has(svg) {
     display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 div[class*="st-key-postit_actions_"] button:hover {
     opacity: 1 !important;
