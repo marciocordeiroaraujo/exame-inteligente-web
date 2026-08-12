@@ -3294,7 +3294,6 @@ NAV_PLANEJAMENTO = [
 NAV_AVALIACOES = [
     ("Central de Questões", "Central de Questões"),
     ("Avaliações e Estatísticas", "Avaliações e Estatísticas"),
-    ("Atividades", "Atividades"),
     ("Configurações", "Configurações"),
 ]
 
@@ -3307,7 +3306,6 @@ ICONES_NAV = {
     "Anotacoes": "\u270e\uFE0E",
     "Central de Questões": "\u2630",
     "Avaliações e Estatísticas": "\u25a5",
-    "Atividades": "\u25a4",
     "Configurações": "\u2699\uFE0E",
 }
 
@@ -6103,7 +6101,7 @@ def tela_central_questoes():
     aba = st.session_state.get("cq_aba", "criar")
     if aba == "importar":
         aba = "criar"
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     if c1.button("\uff0b Criar Questão", key="cq_tab_criar",
                  type="primary" if aba == "criar" else "secondary",
                  use_container_width=True):
@@ -6115,9 +6113,16 @@ def tela_central_questoes():
                  use_container_width=True):
         st.session_state["cq_aba"] = "catalogo"
         st.rerun()
+    if c3.button("\u25a4 Gerar Atividade", key="cq_tab_gerar",
+                 type="primary" if aba == "gerar" else "secondary",
+                 use_container_width=True):
+        st.session_state["cq_aba"] = "gerar"
+        st.rerun()
     st.markdown("---")
     if aba == "catalogo":
         tela_catalogo()
+    elif aba == "gerar":
+        tela_gerar()
     else:
         tela_cadastrar()
 
@@ -6301,7 +6306,7 @@ def exibir_download_prova():
         st.caption(f"Prova gerada com {st.session_state.get('prova_qtd', 0)} questões.")
 
 def tela_gerar():
-    st.markdown("## Gerar Atividade em Word")
+    st.markdown("### Gerar Atividade em Word")
     banco = carregar_banco()
     config = carregar_config()
 
@@ -6646,8 +6651,9 @@ def main():
     elif pagina == "Catálogo de Questões":
         st.session_state["cq_aba"] = "catalogo"
         tela_central_questoes()
-    elif pagina == "Atividades":
-        tela_gerar()
+    elif pagina == "Gerar Atividade":
+        st.session_state["cq_aba"] = "gerar"
+        tela_central_questoes()
     elif pagina == "Configurações":
         tela_configuracoes()
     else:
