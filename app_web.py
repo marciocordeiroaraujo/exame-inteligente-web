@@ -3865,12 +3865,21 @@ def fragmento_dashboard():
                                         f'</div>',
                                         unsafe_allow_html=True)
                                     with st.container(key=f"postit_actions_{nota_id}", border=False):
-                                        with st.popover("✏️", key=f"dash_edit_pop_{nota_id}", use_container_width=False):
-                                            form_postit(nota, uid=f"dash_edit_{nota_id}")
+                                        if st.button("✏️", key=f"dash_edit_btn_{nota_id}", help="Editar lembrete"):
+                                            st.session_state[f"editando_nota_{nota_id}"] = not st.session_state.get(f"editando_nota_{nota_id}", False)
+                                            st.rerun()
                                         if st.button("✕", key=f"dash_del_{nota_id}", help="Excluir lembrete"):
                                             anotacoes = [n for n in anotacoes if n.get("id") != nota_id]
                                             salvar_anotacoes(anotacoes)
                                             st.rerun()
+
+                                    if st.session_state.get(f"editando_nota_{nota_id}"):
+                                        with st.container(border=True):
+                                            st.markdown(f"**Editando Lembrete #{nota_id}**")
+                                            form_postit(nota, uid=f"dash_edit_{nota_id}")
+                                            if st.button("Cancelar", key=f"dash_cancel_{nota_id}"):
+                                                st.session_state[f"editando_nota_{nota_id}"] = False
+                                                st.rerun()
 
         with st.container(key="card_dash_grade"):
             st.markdown(
