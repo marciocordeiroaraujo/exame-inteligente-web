@@ -5338,7 +5338,7 @@ def tela_notas():
             with st.container(key="gab_cfg_card"):
                 st.markdown('<div class="gab-card-title">Configuração da Prova</div>',
                             unsafe_allow_html=True)
-                c1, c2, c3 = st.columns(3)
+                c1, c2, c3, c4 = st.columns([2.2, 2.2, 1.3, 1.3])
                 turmas_sel = c1.multiselect("Turmas que farão a prova", turmas_cad,
                                             placeholder="Escolha as turmas", key="gab_turmas")
                 titulo = c2.text_input("Título da prova",
@@ -5346,6 +5346,8 @@ def tela_notas():
                                        key="gab_titulo")
                 qtd = c3.number_input("Qtd. de questões", min_value=1, max_value=50,
                                       value=10, step=1, key="gab_qtd")
+                qtd_alt = c4.number_input("Qtd. de alternativas", min_value=2, max_value=6,
+                                          value=4, step=1, key="gab_qtd_alt")
 
             # ---- Card: Gabarito e Descritores ----
             with st.container(key="gab_sheet_card"):
@@ -5353,7 +5355,7 @@ def tela_notas():
                             unsafe_allow_html=True)
                 st.caption("Clique na alternativa correta e digite o número do descritor "
                            "(ex: 2, 02, D02).")
-                LETRAS = ["A", "B", "C", "D", "E"]
+                LETRAS = [chr(65 + i) for i in range(int(qtd_alt))]
                 linhas = st.session_state.get("gab_rows", [])
                 # Grade sempre visivel: acompanha a quantidade escolhida
                 if len(linhas) != int(qtd):
@@ -5419,6 +5421,7 @@ def tela_notas():
                             "turma": turma,
                             "data": datetime.now().strftime("%d/%m/%Y"),
                             "gabarito": gabarito_final,
+                            "num_alternativas": int(qtd_alt),
                             "notas_alunos": {}
                         })
                         criadas += 1
@@ -5448,7 +5451,8 @@ def tela_notas():
             if not alunos:
                 st.warning("Esta turma não tem alunos cadastrados.")
             else:
-                LETRAS = ["A", "B", "C", "D", "E"]
+                num_alt_av = av.get("num_alternativas", 4)
+                LETRAS = [chr(65 + i) for i in range(num_alt_av)]
                 resp_atuais = {al: av["notas_alunos"].get(al, {}).get("respostas_dadas", "")
                                for al in alunos}
 
