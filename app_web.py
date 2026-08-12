@@ -4002,7 +4002,8 @@ div[class*="st-key-postit_box_"] {
 div[class*="st-key-postit_actions_"] {
     position: absolute !important;
     bottom: 6px !important;
-    right: 8px !important;
+    left: 8px !important;
+    right: auto !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease;
@@ -4020,6 +4021,7 @@ div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
 div[class*="st-key-postit_actions_"] button,
 div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button {
     background: transparent !important;
+    background-color: transparent !important;
     border: none !important;
     border-radius: 0 !important;
     width: auto !important;
@@ -4044,6 +4046,7 @@ div[class*="st-key-postit_actions_"] button:hover {
     opacity: 1 !important;
     transform: scale(1.15);
     background: transparent !important;
+    background-color: transparent !important;
 }
 </style>""", unsafe_allow_html=True)
 
