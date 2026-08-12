@@ -5199,51 +5199,181 @@ def tela_notas():
     dados_turmas = carregar_turmas()
 
     tab_criar, tab_corrigir, tab_stats = st.tabs(
-        ["1. Criar Avaliação e Gabarito", "2. Lançar Notas / Corrigir", "3. Estatísticas por Descritor"])
+        ["1. Criar Avaliação e Gabarito", "2. Lançar Notas / Corrigir", "3. Estatísticas"])
 
     # ---------------- TAB 1: CRIAR ----------------
     with tab_criar:
+        st.markdown("""<style>
+        /* ---------- Design System: Central de Avaliacoes (Poppins + cores da marca) ---------- */
+        [data-testid="stMainBlockContainer"] {
+            font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        [data-testid="stMainBlockContainer"] h2 {color: var(--cor-p) !important;}
+        [data-testid="stTabs"] button[data-baseweb="tab"] {
+            font-family: 'Poppins', system-ui, sans-serif !important;
+            font-weight: 700 !important; color: var(--cor-cinza) !important;
+        }
+        [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+            color: var(--cor-p) !important;
+        }
+        /* Abas como botoes, com destaque na aba ativa */
+        [data-testid="stTabs"] [data-testid="stTabsListContainer"] {
+            gap: .5rem !important; padding-bottom: .2rem !important;
+        }
+        [data-testid="stTabs"] button[data-baseweb="tab"] {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--borda) !important;
+            border-radius: 12px !important;
+            padding: .55rem .9rem !important;
+            margin: .1rem 0 !important;
+            transition: all .18s ease !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05) !important;
+            text-align: center !important;
+        }
+        [data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+            border-color: var(--cor-p) !important; color: var(--cor-p) !important;
+        }
+        [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+            background: linear-gradient(135deg, var(--cor-p), var(--cor-pd)) !important;
+            border-color: var(--cor-pd) !important; color: #fff !important;
+            box-shadow: 0 4px 10px color-mix(in srgb, var(--cor-p) 35%, transparent) !important;
+        }
+        /* Cards */
+        div[class*="st-key-gab_cfg_card"], div[class*="st-key-gab_sheet_card"] {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--borda) !important;
+            border-radius: 14px !important;
+            padding: 1rem 1.1rem 1.2rem !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
+        }
+        .gab-card-title {
+            font-weight: 700; font-size: 1.05rem; color: var(--cor-texto);
+            border-bottom: 1px solid var(--borda);
+            padding-bottom: .6rem; margin-bottom: .7rem;
+        }
+        /* Botao circular de alternativa A/B/C/D/E */
+        div[class*="st-key-gab_ltr_"] {display: flex; justify-content: center;}
+        div[class*="st-key-gab_ltr_"] button {
+            border-radius: 50% !important; width: 36px !important; height: 36px !important;
+            min-width: 0 !important; padding: 0 !important; font-weight: 800 !important;
+            font-size: .85rem !important; transition: all .15s ease;
+        }
+        div[class*="st-key-gab_ltr_"] button[kind="secondary"] {
+            background: var(--card-bg) !important; border: 1px solid var(--borda) !important;
+            color: var(--cor-texto) !important;
+        }
+        div[class*="st-key-gab_ltr_"] button[kind="secondary"]:hover {
+            background: color-mix(in srgb, var(--cor-p) 10%, var(--card-bg)) !important;
+            border-color: var(--cor-p) !important;
+        }
+        div[class*="st-key-gab_ltr_"] button[kind="primary"] {
+            background: linear-gradient(135deg, var(--cor-p), var(--cor-pd)) !important;
+            border: 1px solid var(--cor-pd) !important; color: #fff !important;
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--cor-p) 40%, transparent) !important;
+        }
+        /* Numero da questao */
+        .gab-q {font-weight: 800; color: var(--cor-cinza); font-size: .9rem; white-space: nowrap;}
+        .gab-q b {color: var(--cor-p);}
+        /* Input do descritor compacto */
+        div[class*="st-key-gab_desc_"] input {
+            text-align: center !important; font-weight: 700 !important; font-size: .85rem !important;
+        }
+        .gab-hint {font-size: .68rem; line-height: 1.25; margin-top: 3px; font-weight: 500;}
+        .gab-hint.ok {color: var(--cor-p);}
+        .gab-hint.err {color: #e11d48;}
+        /* Botao Salvar fixo na parte inferior (sticky) */
+        div[class*="st-key-gab_salvar"] {position: sticky; bottom: 12px; z-index: 5;}
+        div[class*="st-key-gab_salvar"] button {
+            background: linear-gradient(135deg, var(--cor-p), var(--cor-pd)) !important;
+            border: 1px solid var(--cor-pd) !important; border-radius: 14px !important;
+            padding: .95rem !important; font-size: 1.05rem !important; font-weight: 800 !important;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--cor-p) 35%, transparent) !important;
+        }
+        /* No celular os cards das questoes continuam numa linha compacta */
+        @media (max-width: 720px) {
+            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"] {flex-wrap: nowrap !important;}
+            div[class*="st-key-gab_card_"] div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+                flex: 1 1 0 !important; min-width: 0 !important;
+            }
+            div[class*="st-key-gab_ltr_"] {flex: 0 0 34px !important;}
+        }
+        </style>""", unsafe_allow_html=True)
+
         turmas_cad = sorted(list(dados_turmas.keys()))
         if not turmas_cad:
             st.error("Você não tem turmas com alunos. Cadastre em Turmas e Alunos primeiro.")
         else:
-            c1, c2, c3 = st.columns(3)
-            turmas_sel = c1.multiselect("Turmas que farão a prova", turmas_cad)
-            titulo = c2.text_input("Titulo da prova", placeholder="Ex: Prova Bimestral de Matemática")
-            qtd = c3.number_input("Qtd. de questões", min_value=1, max_value=50, value=10, step=1)
+            # ---- Card: Configuracao da Prova ----
+            with st.container(key="gab_cfg_card"):
+                st.markdown('<div class="gab-card-title">Configuração da Prova</div>',
+                            unsafe_allow_html=True)
+                c1, c2, c3 = st.columns(3)
+                turmas_sel = c1.multiselect("Turmas que farão a prova", turmas_cad,
+                                            placeholder="Escolha as turmas", key="gab_turmas")
+                titulo = c2.text_input("Título da prova",
+                                       placeholder="Ex: Prova Bimestral de Matemática",
+                                       key="gab_titulo")
+                qtd = c3.number_input("Qtd. de questões", min_value=1, max_value=50,
+                                      value=10, step=1, key="gab_qtd")
 
-            if st.button("Gerar Atividade", type="primary"):
-                st.session_state["gab_qtd"] = int(qtd)
-                st.session_state["gab_rows"] = [{"resposta": "A", "descritor": ""}
-                                                for _ in range(int(qtd))]
-
-            st.markdown("**Gabarito e descritores (digite o número, ex: 2, 02, D02):**")
-            linhas = st.session_state.get("gab_rows", [])
-            for i, row in enumerate(linhas):
-                r1, r2, r3 = st.columns([1, 1, 3])
-                chave_r = f"gab_{i}"
-                resp = r1.selectbox(f"Q{i + 1:02d} - Resposta", ["A", "B", "C", "D", "E"],
-                                    index=["A", "B", "C", "D", "E"].index(row.get("resposta", "A")),
-                                    key=f"{chave_r}_resp")
-                desc = r2.text_input(f"Descritor Q{i + 1:02d}", value=row.get("descritor", ""),
-                                     placeholder="Ex: D02", key=f"{chave_r}_desc")
-                hint = ""
-                if desc.strip():
-                    chave_d = resolver_descritor(desc)
-                    if chave_d != "Sem Descritor":
-                        hint = f":blue[{DESCRITORES_MAT[chave_d]}]"
+            # ---- Card: Gabarito e Descritores ----
+            with st.container(key="gab_sheet_card"):
+                st.markdown('<div class="gab-card-title">Gabarito e Descritores</div>',
+                            unsafe_allow_html=True)
+                st.caption("Clique na alternativa correta e digite o número do descritor "
+                           "(ex: 2, 02, D02).")
+                LETRAS = ["A", "B", "C", "D", "E"]
+                linhas = st.session_state.get("gab_rows", [])
+                # Grade sempre visivel: acompanha a quantidade escolhida
+                if len(linhas) != int(qtd):
+                    if len(linhas) > int(qtd):
+                        linhas = linhas[:int(qtd)]
                     else:
-                        hint = ":red[Descritor não encontrado]"
-                r3.caption(hint if hint else " ")
-                row["resposta"] = resp
-                row["descritor"] = desc
+                        linhas += [{"resposta": "A", "descritor": ""}
+                                   for _ in range(int(qtd) - len(linhas))]
+                    st.session_state["gab_rows"] = linhas
+                for i in range(0, len(linhas), 3):
+                    cols = st.columns(3)
+                    for j in range(3):
+                        idx = i + j
+                        if idx >= len(linhas):
+                            break
+                        row = linhas[idx]
+                        with cols[j]:
+                            with st.container(key=f"gab_card_{idx}"):
+                                r_lbl, r_let, r_desc = st.columns([1, 3.2, 1.5],
+                                                                  vertical_alignment="center")
+                                r_lbl.markdown(
+                                    f'<div class="gab-q">Q<b>{idx + 1:02d}</b></div>',
+                                    unsafe_allow_html=True)
+                                sub = r_let.columns(len(LETRAS))
+                                for li, l in enumerate(LETRAS):
+                                    sel = row.get("resposta", "A") == l
+                                    if sub[li].button(l, key=f"gab_ltr_{idx}_{l}",
+                                                      type="primary" if sel else "secondary"):
+                                        row["resposta"] = l
+                                        st.rerun()
+                                desc = r_desc.text_input(
+                                    f"Descritor {idx + 1:02d}",
+                                    value=row.get("descritor", ""),
+                                    placeholder="Desc.", key=f"gab_desc_{idx}",
+                                    label_visibility="collapsed")
+                                row["descritor"] = desc
+                                if desc.strip():
+                                    chave_d = resolver_descritor(desc)
+                                    if chave_d != "Sem Descritor":
+                                        r_desc.markdown(
+                                            f'<span class="gab-hint ok">{esc(DESCRITORES_MAT[chave_d])}</span>',
+                                            unsafe_allow_html=True)
+                                    else:
+                                        r_desc.markdown(
+                                            '<span class="gab-hint err">Descritor não encontrado</span>',
+                                            unsafe_allow_html=True)
 
             if st.button("Salvar Gabarito para Turmas Selecionadas", type="primary",
-                         use_container_width=True):
+                         use_container_width=True, key="gab_salvar"):
                 if not turmas_sel:
                     st.error("Selecione pelo menos uma turma.")
-                elif not linhas:
-                    st.error("Clique em 'Gerar Atividade' para gerar os campos do gabarito.")
                 else:
                     gabarito_final = [
                         {"questao": i + 1,
