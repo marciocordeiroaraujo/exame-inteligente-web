@@ -4018,11 +4018,31 @@ div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
     opacity: 1;
     pointer-events: auto;
 }
-div[class*="st-key-postit_actions_"] button,
+div[class*="st-key-postit_actions_"] .stPopover,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"],
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] > div,
 div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+}
+div[class*="st-key-postit_actions_"] .stPopover button:hover,
+div[class*="st-key-postit_actions_"] .stPopover button:focus,
+div[class*="st-key-postit_actions_"] .stPopover button:active,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button:hover,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button:focus,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button:active,
+div[class*="st-key-postit_actions_"] button,
+div[class*="st-key-postit_actions_"] button:hover,
+div[class*="st-key-postit_actions_"] button:focus,
+div[class*="st-key-postit_actions_"] button:active {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 0 !important;
     width: auto !important;
     height: auto !important;
@@ -4032,7 +4052,6 @@ div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button {
     margin: 0 !important;
     font-size: 0.85rem !important;
     color: inherit !important;
-    box-shadow: none !important;
     opacity: 0.85;
     display: inline-flex !important;
     align-items: center !important;
@@ -4045,8 +4064,6 @@ div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button svg {
 div[class*="st-key-postit_actions_"] button:hover {
     opacity: 1 !important;
     transform: scale(1.15);
-    background: transparent !important;
-    background-color: transparent !important;
 }
 </style>""", unsafe_allow_html=True)
 
