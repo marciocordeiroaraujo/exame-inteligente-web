@@ -3865,15 +3865,12 @@ def fragmento_dashboard():
                                         f'</div>',
                                         unsafe_allow_html=True)
                                     with st.container(key=f"postit_actions_{nota_id}", border=False):
-                                        ac1, ac2 = st.columns(2, gap="small")
-                                        with ac1:
-                                            with st.popover("✏️", key=f"dash_edit_pop_{nota_id}", use_container_width=False):
-                                                form_postit(nota, uid=f"dash_edit_{nota_id}")
-                                        with ac2:
-                                            if st.button("✕", key=f"dash_del_{nota_id}", help="Excluir lembrete"):
-                                                anotacoes = [n for n in anotacoes if n.get("id") != nota_id]
-                                                salvar_anotacoes(anotacoes)
-                                                st.rerun()
+                                        with st.popover("✏️", key=f"dash_edit_pop_{nota_id}", use_container_width=False):
+                                            form_postit(nota, uid=f"dash_edit_{nota_id}")
+                                        if st.button("✕", key=f"dash_del_{nota_id}", help="Excluir lembrete"):
+                                            anotacoes = [n for n in anotacoes if n.get("id") != nota_id]
+                                            salvar_anotacoes(anotacoes)
+                                            st.rerun()
 
         with st.container(key="card_dash_grade"):
             st.markdown(
@@ -4004,14 +4001,15 @@ div[class*="st-key-postit_box_"] {
 }
 div[class*="st-key-postit_actions_"] {
     position: absolute !important;
-    bottom: 8px !important;
-    right: 12px !important;
+    bottom: 6px !important;
+    right: 8px !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease;
     z-index: 25;
     background: transparent !important;
     display: flex !important;
+    flex-direction: row !important;
     gap: 8px !important;
     align-items: center !important;
 }
@@ -4019,16 +4017,18 @@ div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
     opacity: 1;
     pointer-events: auto;
 }
-div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button,
-div[class*="st-key-postit_actions_"] button {
+div[class*="st-key-postit_actions_"] button,
+div[class*="st-key-postit_actions_"] [data-testid="stPopover"] button {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
     width: auto !important;
     height: auto !important;
     min-width: 0 !important;
+    min-height: 0 !important;
     padding: 0 !important;
-    font-size: .85rem !important;
+    margin: 0 !important;
+    font-size: 0.85rem !important;
     color: inherit !important;
     box-shadow: none !important;
     opacity: 0.85;
