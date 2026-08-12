@@ -3996,42 +3996,47 @@ def tela_dashboard(config):
 .pt-sq-conteudo {
     font-size: .8rem; line-height: 1.3; overflow-y: auto; flex: 1; margin-top: 6px;
     word-break: break-word;
+    padding-bottom: 16px;
 }
 div[class*="st-key-postit_box_"] {
-    position: relative;
+    position: relative !important;
     margin-bottom: 8px;
 }
 div[class*="st-key-postit_actions_"] {
     position: absolute !important;
     bottom: 8px !important;
-    right: 8px !important;
+    right: 12px !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease;
     z-index: 25;
     background: transparent !important;
     display: flex;
-    gap: 4px;
+    gap: 6px;
+    align-items: center;
 }
 div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
     opacity: 1;
     pointer-events: auto;
 }
 div[class*="st-key-postit_actions_"] button {
-    background: rgba(0,0,0,0.1) !important;
+    background: transparent !important;
     border: none !important;
-    border-radius: 50% !important;
-    width: 24px !important;
-    height: 24px !important;
+    border-radius: 0 !important;
+    width: auto !important;
+    height: auto !important;
     min-width: 0 !important;
     padding: 0 !important;
-    font-size: .65rem !important;
+    font-size: .85rem !important;
     color: inherit !important;
     box-shadow: none !important;
-    transition: background 0.15s ease;
+    opacity: 0.85;
+    transition: opacity 0.15s ease, transform 0.15s ease;
 }
 div[class*="st-key-postit_actions_"] button:hover {
-    background: rgba(0,0,0,0.22) !important;
+    opacity: 1 !important;
+    transform: scale(1.15);
+    background: transparent !important;
 }
 </style>""", unsafe_allow_html=True)
 
