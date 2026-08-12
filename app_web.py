@@ -3840,27 +3840,40 @@ def fragmento_dashboard():
             if not anotacoes:
                 st.caption("Nenhum post-it. Crie um no botao + Novo.")
             else:
-                with st.container(key="mural_scroll", height=320):
-                    for nota in anotacoes:
-                        cor = nota.get("cor") or "#fff3a3"
-                        txt = cor_texto_legivel(cor)
-                        conteudo_full = nota.get("conteudo", "")
-                        data_pt = nota.get("data") or nota.get("data_criacao") or ""
-                        st.markdown(
-                            f'<div class="postit ei-pt" style="background:{cor};color:{txt};" '
-                            f'title="{esc(conteudo_full)}">'
-                            f'<div class="pt-titulo">\U0001f4cb {esc(nota.get("titulo", ""))}</div>'
-                            f'<div class="pt-tag">{esc(data_pt)}</div>'
-                            f'<div class="pt-conteudo">{esc(conteudo_full)}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True)
-                        b1, b2 = st.columns(2)
-                        with b1.popover("Editar", key=f"dash_edit_pop_{nota.get('id')}", use_container_width=True):
-                            form_postit(nota, uid=f"dash_edit_{nota.get('id')}")
-                        if b2.button("Excluir", key=f"dash_del_{nota.get('id')}", use_container_width=True):
-                            anotacoes = [n for n in anotacoes if n.get("id") != nota.get("id")]
-                            salvar_anotacoes(anotacoes)
-                            st.rerun()
+                with st.container(key="mural_scroll", height=340):
+                    for i in range(0, len(anotacoes), 2):
+                        cols = st.columns(2, gap="small")
+                        for j in range(2):
+                            idx = i + j
+                            if idx >= len(anotacoes):
+                                break
+                            nota = anotacoes[idx]
+                            nota_id = nota.get("id")
+                            cor = nota.get("cor") or "#fff3a3"
+                            txt = cor_texto_legivel(cor)
+                            conteudo_full = nota.get("conteudo", "")
+                            data_pt = nota.get("data") or nota.get("data_criacao") or ""
+                            with cols[j]:
+                                with st.container(key=f"postit_box_{nota_id}"):
+                                    st.markdown(
+                                        f'<div class="postit-square" style="background:{cor};color:{txt};">'
+                                        f'<div class="pt-sq-header">'
+                                        f'<div class="pt-sq-titulo">📌 {esc(nota.get("titulo", ""))}</div>'
+                                        f'<div class="pt-sq-tag">{esc(data_pt)}</div>'
+                                        f'</div>'
+                                        f'<div class="pt-sq-conteudo">{esc(conteudo_full)}</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True)
+                                    with st.container(key=f"postit_actions_{nota_id}", border=False):
+                                        ac1, ac2 = st.columns(2, gap="small")
+                                        with ac1:
+                                            with st.popover("✏️", key=f"dash_edit_pop_{nota_id}", use_container_width=False):
+                                                form_postit(nota, uid=f"dash_edit_{nota_id}")
+                                        with ac2:
+                                            if st.button("✕", key=f"dash_del_{nota_id}", help="Excluir lembrete"):
+                                                anotacoes = [n for n in anotacoes if n.get("id") != nota_id]
+                                                salvar_anotacoes(anotacoes)
+                                                st.rerun()
 
         with st.container(key="card_dash_grade"):
             st.markdown(
@@ -3958,6 +3971,54 @@ def tela_dashboard(config):
 .dash-tl-time { font-weight: 400; font-size: .85rem; color: var(--cor-cinza); margin-left: 6px; white-space: nowrap; }
 .dash-tl-txt { font-size: .9rem; font-weight: 600; color: var(--cor-texto); }
 .dash-tl-sub { font-size: .78rem; color: var(--cor-cinza); }
+
+/* Lembretes em grid quadrado (2 por linha) com hover para acoes */
+.postit-square {
+    border-radius: 12px;
+    padding: 12px;
+    height: 155px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.12);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform .18s ease, box-shadow .18s ease;
+    position: relative;
+}
+.postit-square:hover {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+.pt-sq-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+.pt-sq-titulo { font-weight: 800; font-size: .88rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-sq-tag { font-size: .65rem; opacity: .78; white-space: nowrap; }
+.pt-sq-conteudo {
+    font-size: .8rem; line-height: 1.3; overflow-y: auto; flex: 1; margin-top: 6px;
+    word-break: break-word;
+}
+div[class*="st-key-postit_box_"] {
+    position: relative;
+    margin-bottom: 8px;
+}
+div[class*="st-key-postit_actions_"] {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+    z-index: 25;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(4px);
+    border-radius: 8px;
+    padding: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+div[class*="st-key-postit_box_"]:hover div[class*="st-key-postit_actions_"] {
+    opacity: 1;
+    pointer-events: auto;
+}
 </style>""", unsafe_allow_html=True)
 
     nome_prof = primeiro_nome_professor(config)
