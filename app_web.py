@@ -5571,33 +5571,81 @@ def tela_notas():
 
     # ---------------- TAB 2: CORRIGIR ----------------
     with tab_corrigir:
-        if not avaliacoes:
-            st.info("Nenhuma avaliação cadastrada.")
-        else:
+        if avaliacoes:
             titulos_av = [f"[{a['turma']}] {a['titulo']} ({a['data']})" for a in avaliacoes]
-            
+
+            # seleciona automaticamente a avaliacao recem-criada pela importacao
+            desejado = st.session_state.pop("_av_corrigir_desejado", None)
+            if desejado and desejado in titulos_av:
+                st.session_state["av_corrigir"] = desejado
+
             c1, c2, c3 = st.columns([2.5, 1.5, 1])
             av_escolhida = c1.selectbox("Selecione a avaliação", titulos_av, key="av_corrigir")
             modo = c2.radio("Modo de correcao", ["Rapido (Texto)", "Detalhado (Blocos)"],
                             index=1, horizontal=True)
-            
+
             idx = titulos_av.index(av_escolhida)
             av = avaliacoes[idx]
-            
-            with c3.popover("📥 Importar Planilha", use_container_width=True):
-                st.markdown("**Corrigir via Excel**")
-                st.caption(f"Arraste a planilha da turma **{av['turma']}** para lançar todas as respostas.")
-                arquivo_notas = st.file_uploader("", type=["xlsx", "xls"], key="imp_notas_file")
-                if arquivo_notas is not None:
-                    if st.button("Processar Planilha", type="primary", use_container_width=True):
-                        processar_planilha_notas_excel(arquivo_notas, av, avaliacoes, idx, dados_turmas)
-                        st.rerun()
+            alvo_import = c3
+        else:
+            titulos_av = []
+            av_escolhida = None
+            idx = 0
+            av = None
+            modo = "Detalhado (Blocos)"
+            alvo_import = st
 
+        with alvo_import.popover("📥 Importar Planilha", width="stretch"):
+            st.markdown("**Corrigir via Excel**")
+            st.caption("Crie uma nova avaliação a partir da planilha ou "
+                       "lance as notas na avaliação selecionada.")
+            if st.button("Abrir importação", type="primary",
+                         width="stretch", key="imp_btn_abrir"):
+                st.session_state["imp_abrir"] = True
+                st.rerun()
+
+        # ---- resultado da ultima importacao ----
+        resumo_imp = st.session_state.get("imp_resumo")
+        if resumo_imp:
+            with st.container(key="imp_resumo_box"):
+                st.markdown("##### ✅ Resultado da última importação")
+                if resumo_imp.get("avaliacoes"):
+                    st.caption("Avaliação(is): " + ", ".join(resumo_imp["avaliacoes"]))
+                st.dataframe(resumo_imp["tabela"], hide_index=True)
+
+        # ---- painel de importacao de planilha ----
+        if st.session_state.get("imp_abrir"):
+            _painel_importar_planilha(avaliacoes, dados_turmas, av, idx)
+
+        if not avaliacoes:
+            st.info("Nenhuma avaliação cadastrada. Use o botão **📥 Importar Planilha** "
+                    "para criar uma avaliação a partir de uma planilha Excel.")
+        else:
             aid = av.get("id", idx)
             turma = av["turma"]
-            alunos = sorted(dados_turmas.get(turma, []))
             gabarito = av["gabarito"]
             qtd_q = len(gabarito)
+            notas_av = av.get("notas_alunos", {}) or {}
+
+            # ---- notas ja lancadas nesta avaliacao ----
+            if notas_av:
+                with st.container(key="imp_notas_box"):
+                    st.markdown("##### 📊 Notas lançadas nesta avaliação")
+                    linhas_tab = []
+                    for aluno, d in sorted(notas_av.items()):
+                        acertos = round((d.get("nota_final", 0) / 10) * qtd_q) if qtd_q else 0
+                        linhas_tab.append({"Aluno": aluno,
+                                           "Acertos": f"{acertos}/{qtd_q}",
+                                           "Nota (0-10)": f"{d.get('nota_final', 0):.1f}"})
+                    st.dataframe(linhas_tab, hide_index=True)
+
+            # alunos da turma + alunos que ja possuem notas nesta avaliacao
+            alunos_turma = sorted(dados_turmas.get(turma, []))
+            extras = [a for a in sorted(notas_av.keys()) if a not in alunos_turma]
+            alunos = list(alunos_turma) + extras
+            if extras:
+                st.caption(f"Alunos com notas nesta avaliação que não estão "
+                           f"cadastrados na turma: {', '.join(extras)}")
 
             if not alunos:
                 st.warning("Esta turma não tem alunos cadastrados.")
@@ -5670,83 +5718,498 @@ def tela_notas():
     with tab_stats:
         montar_aba_stats(avaliacoes)
 
-def processar_planilha_notas_excel(arquivo, av, avaliacoes, idx_av, dados_turmas):
+# =====================================================================
+# 14B. IMPORTACAO DE NOTAS VIA EXCEL (planilha -> avaliacao)
+#     - Localiza a ancora "NOME DO ALUNO" em qualquer aba da planilha
+#     - Detecta as colunas de questoes e o gabarito (linha "GABARITO")
+#     - Casa cada aluno da planilha com o aluno cadastrado no site
+#       (nome exato, incompleto, sem acento ou com erro de digitacao)
+# =====================================================================
+def _sem_acento(texto):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", str(texto))
+                   if not unicodedata.combining(c))
+
+
+def _chave_nome(nome):
+    """Chave de comparacao de nomes: minusculas, sem acento, so letras/numeros."""
+    txt = _sem_acento(nome).lower()
+    return " ".join("".join(c if c.isalnum() else " " for c in txt).split())
+
+
+def _tokens_nome(chave):
+    return [t for t in chave.split() if len(t) >= 2]
+
+
+def _indice_alunos(dados_turmas):
+    """(turma, nome_oficial, chave) de TODOS os alunos de TODAS as turmas."""
+    indice = []
+    for turma, lista in (dados_turmas or {}).items():
+        for nome in (lista or []):
+            nome = str(nome).strip()
+            if nome:
+                indice.append((turma, nome, _chave_nome(nome)))
+    return indice
+
+
+def _achar_aluno_planilha(nome_planilha, indice, turma_preferida=""):
+    """Casa o nome escrito na planilha com o aluno cadastrado no site.
+    Aceita: nome exato, nome incompleto (MARIA -> MARIA SOUZA), abreviacoes
+    e erros de digitacao (sem acento / letras trocadas).
+    Retorna (turma, nome_oficial, tipo, detalhe)."""
+    import difflib
+    chave = _chave_nome(nome_planilha)
+    if not chave:
+        return None, None, "vazio", ""
+
+    # 1) nome exatamente igual
+    exatos = [(t, n) for t, n, k in indice if k == chave]
+    if exatos:
+        if turma_preferida:
+            pref = [e for e in exatos if e[0] == turma_preferida]
+            if pref:
+                return pref[0][0], pref[0][1], "exato", ""
+        return exatos[0][0], exatos[0][1], "exato", ""
+
+    # 2) nome incompleto (um dos nomes usa menos palavras que o outro)
+    tp = _tokens_nome(chave)
+    cands = []
+    for turma, nome, k in indice:
+        ts = _tokens_nome(k)
+        if not tp or not ts:
+            continue
+        if set(tp) <= set(ts):
+            score = 0.95 - 0.05 * (len(ts) - len(tp))
+        elif set(ts) <= set(tp):
+            score = 0.95 - 0.05 * (len(tp) - len(ts))
+        else:
+            continue
+        cands.append((round(score, 4), turma, nome))
+    if cands:
+        cands.sort(key=lambda x: -x[0])
+        melhor = cands[0]
+        iguais = [c for c in cands if abs(c[0] - melhor[0]) < 1e-6]
+        if turma_preferida:
+            pref = [c for c in iguais if c[1] == turma_preferida]
+            if pref:
+                return pref[0][1], pref[0][2], "parcial", ""
+        if len(iguais) == 1:
+            return melhor[1], melhor[2], "parcial", ""
+        return None, None, "ambiguo", ", ".join(f"{c[2]} ({c[1]})" for c in iguais[:5])
+
+    # 3) nome parecido (erro de digitacao / grafia diferente)
+    cands = []
+    for turma, nome, k in indice:
+        r = difflib.SequenceMatcher(None, chave, k).ratio()
+        if r >= 0.80:
+            cands.append((round(r, 4), turma, nome))
+    if cands:
+        cands.sort(key=lambda x: -x[0])
+        melhor = cands[0]
+        iguais = [c for c in cands if abs(c[0] - melhor[0]) < 1e-6]
+        if turma_preferida:
+            pref = [c for c in iguais if c[1] == turma_preferida]
+            if pref:
+                return pref[0][1], pref[0][2], "aproximado", ""
+        if len(iguais) == 1:
+            return melhor[1], melhor[2], "aproximado", ""
+        return None, None, "ambiguo", ", ".join(f"{c[2]} ({c[1]})" for c in iguais[:5])
+
+    return None, None, "nao_encontrado", ""
+
+
+def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
+    """Le a planilha, localiza 'NOME DO ALUNO', as colunas de questoes e o
+    gabarito, e casa cada linha de aluno com o aluno cadastrado no site."""
     import io
     import openpyxl
     try:
         wb = openpyxl.load_workbook(io.BytesIO(arquivo.read()), data_only=True)
     except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-        return
-        
-    turma_av = av.get("turma", "")
-    gabarito = av.get("gabarito", [])
-    qtd_q = len(gabarito)
-    
-    # Tenta achar a aba com o nome da turma, senão pega a aba ativa
-    sheet_name = None
-    for sn in wb.sheetnames:
-        if turma_av.lower() in sn.lower() or sn.lower() in turma_av.lower():
-            sheet_name = sn
-            break
-            
-    ws = wb[sheet_name] if sheet_name else wb.active
-        
-    # Localiza a âncora do cabeçalho "NOME DO ALUNO"
-    start_row = None
-    name_col = None
-    for row in ws.iter_rows(min_row=1, max_row=30):
-        for cell in row:
-            if str(cell.value).strip().upper() == "NOME DO ALUNO":
-                start_row = cell.row
-                name_col = cell.column
-                break
-        if start_row:
-            break
-            
-    if not start_row:
-        st.error("Coluna 'NOME DO ALUNO' não encontrada na planilha inserida.")
-        return
-        
-    alunos_cadastrados = {normalizar_nome(a).lower(): a for a in dados_turmas.get(turma_av, [])}
-    dados_entrada = []
-    alunos_importados = 0
-    
-    for row in ws.iter_rows(min_row=start_row + 1, max_row=ws.max_row):
-        nome_excel = row[name_col - 1].value
-        if not nome_excel or str(nome_excel).strip() == "":
-            continue
-            
-        nome_norm = normalizar_nome(str(nome_excel)).lower()
-        nome_oficial = alunos_cadastrados.get(nome_norm, str(nome_excel).strip())
-        
-        respostas_aluno = []
-        for c in range(name_col, len(row)):
-            header_val = ws.cell(row=start_row, column=c + 1).value
-            if isinstance(header_val, (int, float)) or (isinstance(header_val, str) and header_val.replace('.', '', 1).isdigit()):
-                ans = str(row[c].value).strip().upper() if row[c].value else " "
-                if ans not in ["A", "B", "C", "D", "E"]:
-                    ans = " "
-                respostas_aluno.append(ans)
-                
-                if len(respostas_aluno) == qtd_q:
+        return {"erro": f"Erro ao ler arquivo: {e}"}
+
+    # ---------- aba que possui a ancora "NOME DO ALUNO" ----------
+    folhas = list(wb.sheetnames)
+    if turma_preferida:
+        folhas = ([s for s in folhas if turma_preferida.lower() in s.lower()]
+                  + [s for s in folhas if turma_preferida.lower() not in s.lower()])
+    ws = start_row = name_col = None
+    for sn in folhas:
+        folha = wb[sn]
+        achou = None
+        for row in folha.iter_rows(min_row=1, max_row=40):
+            for cell in row:
+                if str(cell.value).strip().upper() == "NOME DO ALUNO":
+                    achou = (cell.row, cell.column)
                     break
-                    
-        resp_txt = "".join(respostas_aluno).ljust(qtd_q, " ")
-        dados_entrada.append((nome_oficial, "rapido", resp_txt, "", None))
-        alunos_importados += 1
-        
-    if alunos_importados == 0:
-        st.warning("Nenhum dado de aluno encontrado abaixo do cabeçalho.")
-        return
-        
-    processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx_av)
-    st.success(f"Sucesso! Notas e descritores de {alunos_importados} alunos importados automaticamente da planilha.")
+            if achou:
+                break
+        if achou:
+            ws, start_row, name_col = folha, achou[0], achou[1]
+            break
+    if not start_row:
+        return {"erro": "Coluna 'NOME DO ALUNO' nao encontrada na planilha."}
+
+    max_col = ws.max_column or name_col
+
+    # ---------- colunas das questoes (cabecalho numerico) ----------
+    def _cols_numericas(linha):
+        achadas = []
+        for c in range(name_col + 1, max_col + 1):
+            v = ws.cell(row=linha, column=c).value
+            if isinstance(v, bool):
+                continue
+            if isinstance(v, (int, float)):
+                achadas.append(c)
+            elif isinstance(v, str) and v.strip().replace(".", "", 1).isdigit():
+                achadas.append(c)
+        return achadas
+
+    colunas = _cols_numericas(start_row)
+    if not colunas and start_row > 1:
+        colunas = _cols_numericas(start_row - 1)
+    if not colunas:
+        colunas = [c for c in range(name_col + 1, max_col + 1)
+                   if ws.cell(row=start_row, column=c).value not in (None, "")]
+    if not colunas:
+        return {"erro": "Nao foi possivel identificar as colunas de questoes na planilha."}
+
+    # ---------- gabarito (linha "GABARITO" ou aba "Gabarito") ----------
+    def _letras_da_linha(linha):
+        letras = []
+        for c in colunas:
+            v = ws.cell(row=linha, column=c).value
+            s = str(v).strip().upper() if v is not None else ""
+            letras.append(s[0] if s and s[0] in "ABCDEF" else " ")
+        return "".join(letras)
+
+    gabarito = ""
+    for r in range(1, (ws.max_row or 1) + 1):
+        rot = ws.cell(row=r, column=name_col).value
+        if rot is None:
+            continue
+        rot = _sem_acento(str(rot)).upper()
+        if ("GABARITO" in rot or "RESPOSTA CORRETA" in rot
+                or rot.strip() in ("RESPOSTAS", "CHAVE", "RESPOSTA")):
+            letras = _letras_da_linha(r)
+            if letras.strip():
+                gabarito = letras.strip()
+                break
+    if not gabarito:
+        for sn in wb.sheetnames:
+            if "gabarito" not in _sem_acento(sn).lower():
+                continue
+            folha = wb[sn]
+            for r in range(1, min(folha.max_row or 1, 20) + 1):
+                letras = []
+                for c in range(1, min(folha.max_column or 1, 60) + 1):
+                    v = folha.cell(row=r, column=c).value
+                    s = str(v).strip().upper() if v is not None else ""
+                    if len(s) == 1 and s in "ABCDEF":
+                        letras.append(s)
+                    elif letras:
+                        break
+                if len(letras) >= 3:
+                    gabarito = "".join(letras)
+                    break
+            if gabarito:
+                break
+
+    # ---------- respostas dos alunos + casamento com o site ----------
+    indice = _indice_alunos(dados_turmas)
+    linhas = []
+    for r in range(start_row + 1, (ws.max_row or start_row) + 1):
+        nome = ws.cell(row=r, column=name_col).value
+        if nome is None or str(nome).strip() == "":
+            continue
+        nome = str(nome).strip()
+        rot = _sem_acento(nome).upper()
+        if ("GABARITO" in rot or rot in ("RESPOSTA", "RESPOSTAS", "CHAVE",
+                                         "TOTAL", "MEDIA", "OBS", "OBSERVACOES")):
+            continue
+        respostas = []
+        for c in colunas:
+            v = ws.cell(row=r, column=c).value
+            s = str(v).strip().upper() if v is not None else ""
+            respostas.append(s[0] if s and s[0] in "ABCDEF" else " ")
+        turma, nome_of, tipo, detalhe = _achar_aluno_planilha(nome, indice, turma_preferida)
+        linhas.append({"planilha": nome, "respostas": "".join(respostas),
+                       "turma": turma, "nome_oficial": nome_of,
+                       "tipo": tipo, "detalhe": detalhe})
+
+    if not linhas:
+        return {"erro": "Nenhum dado de aluno encontrado abaixo do cabecalho 'NOME DO ALUNO'."}
+
+    return {"erro": None, "sheet": ws.title, "qtd_questoes": len(colunas),
+            "gabarito": gabarito, "linhas": linhas,
+            "turmas_detectadas": sorted({l["turma"] for l in linhas if l["turma"]})}
+
+
+def _gabarito_avaliacao(gabarito_texto, descritores_texto):
+    """Monta o gabarito (lista de questoes) a partir do texto digitado."""
+    letras = [c for c in str(gabarito_texto or "").upper() if c.isalpha()]
+    if not letras:
+        return None, None, "Informe o gabarito (uma letra por questao, ex.: ABCDAB...)."
+    numeros = re.findall(r"\d+", str(descritores_texto or ""))
+    if len(numeros) == len(letras):
+        descritores = [resolver_descritor(n) for n in numeros]
+    else:
+        descritores = ["Sem Descritor"] * len(letras)
+    gabarito = [{"questao": i + 1, "resposta_correta": l, "descritor": d}
+                 for i, (l, d) in enumerate(zip(letras, descritores))]
+    return gabarito, letras, None
+
+
+def _lancar_planilha(av, avaliacoes, idx_av, analise, gabarito, qtd_q, turma_fixa=""):
+    """Lanca as respostas da planilha na avaliacao av e devolve o resumo."""
+    dados_entrada = []
+    resumo = []
+    for i, ln in enumerate(analise["linhas"]):
+        linha = {"_idx": i, "_lancar": False,
+                 "Aluno (planilha)": ln["planilha"],
+                 "Aluno (site)": ln["nome_oficial"] or "-",
+                 "Turma": ln["turma"] or "-",
+                 "Casamento": ln["tipo"],
+                 "Situacao": "", "Acertos": 0, "Nota (0-10)": 0.0}
+        if not ln["nome_oficial"]:
+            linha["Situacao"] = "Nao encontrado no site"
+            if ln["tipo"] == "ambiguo":
+                linha["Aluno (site)"] = f"Ambiguo: {ln['detalhe']}"
+            resumo.append(linha)
+            continue
+        if turma_fixa and ln["turma"] and ln["turma"] != turma_fixa:
+            linha["Situacao"] = "Outra turma"
+            resumo.append(linha)
+            continue
+        resp = ln["respostas"][:qtd_q].ljust(qtd_q, " ")
+        dados_entrada.append((ln["nome_oficial"], "rapido", resp, "", None))
+        linha["_lancar"] = True
+        resumo.append(linha)
+
+    resultados = processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx_av,
+                                    mostrar_msg=False, salvar=False)
+    for linha in resumo:
+        if linha["_lancar"]:
+            r = resultados.get(linha["Aluno (site)"], {})
+            linha["Situacao"] = ("Lancado" if r.get("respostas", "").strip()
+                                 else "Sem respostas")
+            linha["Acertos"] = r.get("acertos", 0)
+            linha["Nota (0-10)"] = round(r.get("nota", 0.0), 1)
+    return resumo
+
+
+def _resumo_limpo(resumo):
+    """Remove os campos internos do resumo para exibir na tabela."""
+    return [{k: v for k, v in linha.items() if not k.startswith("_")}
+            for linha in resumo]
+
+
+def processar_planilha_notas_excel(arquivo, av, avaliacoes, idx_av, dados_turmas):
+    """Importa as respostas de uma planilha na avaliacao ja existente."""
+    analise = _analisar_planilha_excel(arquivo, dados_turmas, av.get("turma", ""))
+    if analise.get("erro"):
+        st.error(analise["erro"])
+        return None
+    gabarito = av.get("gabarito", [])
+    resumo = _lancar_planilha(av, avaliacoes, idx_av, analise, gabarito,
+                              len(gabarito), turma_fixa=av.get("turma", ""))
+    salvar_avaliacoes(avaliacoes)
+    lancados = len([r for r in resumo if r["Situacao"] == "Lancado"])
+    st.success(f"Sucesso! {lancados} aluno(s) importado(s) e corrigido(s) "
+               f"na avaliacao [{av.get('turma', '')}] {av.get('titulo', '')}.")
+    return resumo
+
+
+def _criar_avaliacoes_da_planilha(analise, avaliacoes, dados_turmas, titulo, data,
+                                  gabarito_texto, descritores_texto, turmas_sel):
+    """Cria uma avaliacao por turma e lanca as notas dos alunos de cada uma."""
+    gabarito, letras, erro = _gabarito_avaliacao(gabarito_texto, descritores_texto)
+    if erro:
+        return None, None, erro
+    if not turmas_sel:
+        return None, None, "Selecione pelo menos uma turma."
+
+    num_alt = max(4, max(ord(l) - 64 for l in letras) + 1)
+    num_alt = min(6, num_alt)
+    data_av = (data or "").strip() or datetime.now().strftime("%d/%m/%Y")
+    titulo_av = (titulo or "").strip() or "Avaliacao importada"
+
+    proximo_id = max([a.get("id", 0) for a in avaliacoes], default=0) + 1
+    criadas = []
+    for turma in turmas_sel:
+        avaliacoes.append({
+            "id": proximo_id,
+            "titulo": titulo_av,
+            "turma": turma,
+            "data": data_av,
+            "gabarito": [dict(q) for q in gabarito],
+            "num_alternativas": num_alt,
+            "notas_alunos": {}
+        })
+        criadas.append((len(avaliacoes) - 1, avaliacoes[-1], turma))
+        proximo_id += 1
+
+    resumo = []
+    por_idx = {}
+    for idx_av, av_novo, turma in criadas:
+        for linha in _lancar_planilha(av_novo, avaliacoes, idx_av, analise, gabarito,
+                                      len(letras), turma_fixa=turma):
+            i = linha["_idx"]
+            atual = por_idx.get(i)
+            if atual is None or (atual["Situacao"] != "Lancado"
+                                 and linha["Situacao"] == "Lancado"):
+                por_idx[i] = linha
+    for i, ln in enumerate(analise["linhas"]):
+        linha = por_idx.get(i)
+        if linha is None:
+            linha = {"_idx": i, "_lancar": False,
+                     "Aluno (planilha)": ln["planilha"],
+                     "Aluno (site)": ln["nome_oficial"] or "-",
+                     "Turma": ln["turma"] or "-",
+                     "Casamento": ln["tipo"],
+                     "Situacao": "", "Acertos": 0, "Nota (0-10)": 0.0}
+        if linha["Situacao"] == "Outra turma":
+            t = linha["Turma"]
+            linha["Situacao"] = (f"Turma nao incluida ({t})" if t != "-"
+                                 else "Turma nao incluida")
+        elif linha["Situacao"] == "":
+            linha["Situacao"] = "Nao encontrado no site"
+        resumo.append(linha)
+    salvar_avaliacoes(avaliacoes)
+    return criadas, resumo, None
+
+
+def _painel_importar_planilha(avaliacoes, dados_turmas, av_atual, idx_atual):
+    """Painel de importacao de notas via Excel (aba Lancar Notas / Corrigir)."""
+    st.markdown("""<style>
+    div[class*="st-key-imp_panel"] {
+        border: 1.5px solid var(--cor-pd);
+        border-radius: 16px;
+        padding: 14px 18px 6px 18px;
+        background: var(--card-bg);
+        box-shadow: 0 2px 8px rgba(0,0,0,.05);
+        margin-bottom: 14px;
+    }
+    div[class*="st-key-imp_resumo_box"] {
+        border: 1.5px solid #16a34a;
+        border-radius: 16px;
+        padding: 10px 16px 4px 16px;
+        background: rgba(22,163,74,.06);
+        margin-bottom: 14px;
+    }
+    div[class*="st-key-imp_notas_box"] {
+        border: 1.5px solid var(--cor-pd);
+        border-radius: 16px;
+        padding: 10px 16px 4px 16px;
+        background: var(--card-bg);
+        margin-bottom: 14px;
+    }
+    </style>""", unsafe_allow_html=True)
+    with st.container(key="imp_panel"):
+        st.markdown("#### 📥 Importação de notas via Excel")
+
+        destino = st.radio("Onde salvar as notas?",
+                            ["Criar nova avaliação", "Lançar na avaliação selecionada"],
+                            horizontal=True, key="imp_destino")
+        if not av_atual and destino == "Lançar na avaliação selecionada":
+            destino = "Criar nova avaliação"
+            st.info("Ainda não há avaliação criada. O destino será **Criar nova avaliação**.")
+        arquivo = st.file_uploader("Selecione a planilha de respostas (.xlsx)",
+                                   type=["xlsx"], key="imp_notas_file")
+        if arquivo is None:
+            st.caption("A planilha deve ter a coluna **NOME DO ALUNO** e as respostas "
+                       "nas colunas seguintes (1, 2, 3...). O gabarito pode estar "
+                       "numa linha chamada GABARITO.")
+            return
+
+        c1, c2 = st.columns([1, 1])
+        if c1.button("🔍 Analisar planilha", type="primary",
+                     width="stretch", key="imp_btn_analisar"):
+            with st.spinner("Analisando a planilha..."):
+                st.session_state["imp_analise"] = _analisar_planilha_excel(
+                    arquivo, dados_turmas, (av_atual or {}).get("turma", ""))
+            st.rerun()
+        if c2.button("❌ Fechar importação", width="stretch",
+                     key="imp_btn_fechar"):
+            st.session_state["imp_abrir"] = False
+            st.session_state.pop("imp_analise", None)
+            st.rerun()
+
+        analise = st.session_state.get("imp_analise")
+        if not analise:
+            return
+        if analise.get("erro"):
+            st.error(analise["erro"])
+            return
+
+        ident = [l for l in analise["linhas"] if l["nome_oficial"]]
+        nao_ident = [l for l in analise["linhas"] if not l["nome_oficial"]]
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Questões", analise["qtd_questoes"])
+        m2.metric("Linhas na planilha", len(analise["linhas"]))
+        m3.metric("Identificados no site", len(ident))
+        m4.metric("Não identificados", len(nao_ident))
+        if analise["gabarito"]:
+            st.success(f"Gabarito encontrado na planilha: `{analise['gabarito']}`")
+        else:
+            st.warning("Gabarito não encontrado na planilha - informe o gabarito abaixo.")
+
+        if destino == "Criar nova avaliação":
+            c1, c2 = st.columns([2.2, 1])
+            titulo = c1.text_input("Título da avaliação", value="Avaliação importada",
+                                   key="imp_titulo")
+            data = c2.text_input("Data (dd/mm/aaaa)",
+                                 value=datetime.now().strftime("%d/%m/%Y"), key="imp_data")
+            gab_texto = st.text_input("Gabarito (uma letra por questão)",
+                                      value=analise["gabarito"],
+                                      help="Ex.: ABCDAB...", key="imp_gabarito")
+            desc_texto = st.text_input("Descritores por questão (opcional)", value="",
+                                       help="Ex.: 1 1 2 2 3 (um número por questão)",
+                                       key="imp_desc")
+            turmas_det = analise["turmas_detectadas"]
+            turmas_sel = st.multiselect("Turmas que farão a avaliação", turmas_det,
+                                        default=turmas_det, key="imp_turmas")
+            if st.button("✅ Criar avaliação e lançar notas", type="primary",
+                         width="stretch", key="imp_btn_criar"):
+                criadas, resumo, erro = _criar_avaliacoes_da_planilha(
+                    analise, avaliacoes, dados_turmas, titulo, data, gab_texto,
+                    desc_texto, turmas_sel)
+                if erro:
+                    st.error(erro)
+                else:
+                    st.session_state["imp_resumo"] = {
+                        "avaliacoes": [f"[{t}] {titulo}" for _, _, t in criadas],
+                        "tabela": _resumo_limpo(resumo)}
+                    st.session_state.pop("imp_analise", None)
+                    st.session_state["_av_corrigir_desejado"] = (
+                        f"[{criadas[0][2]}] {titulo} ({criadas[0][1]['data']})")
+                    st.rerun()
+        else:
+            turma_av = (av_atual or {}).get("turma", "")
+            gab_av = (av_atual or {}).get("gabarito", [])
+            st.caption(f"Avaliação: [{turma_av}] {(av_atual or {}).get('titulo', '')} "
+                       f"({(av_atual or {}).get('data', '')}) - {len(gab_av)} questões. "
+                       f"Alunos de outras turmas são ignorados.")
+            if st.button("✅ Lançar notas na avaliação atual", type="primary",
+                         width="stretch", key="imp_btn_lancar"):
+                if not gab_av:
+                    st.error("A avaliação selecionada não possui gabarito.")
+                else:
+                    resumo = _lancar_planilha(av_atual, avaliacoes, idx_atual, analise,
+                                              gab_av, len(gab_av), turma_fixa=turma_av)
+                    salvar_avaliacoes(avaliacoes)
+                    st.session_state["imp_resumo"] = {
+                        "avaliacoes": [f"[{turma_av}] {(av_atual or {}).get('titulo', '')}"],
+                        "tabela": _resumo_limpo(resumo)}
+                    st.session_state.pop("imp_analise", None)
+                    st.rerun()
 
 
 # ---------------- correcao ----------------
-def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
+def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx,
+                       mostrar_msg=True, salvar=True):
     qtd_q = len(gabarito)
+    resultados = {}
     for aluno, tipo, resp_txt, nota_txt, blocos in dados_entrada:
         if tipo == "rapido":
             resp_dadas = resp_txt.strip().upper()
@@ -5756,9 +6219,9 @@ def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
         nota_manual = nota_txt.strip()
         acertos_descritores = {}
         nota_calculada = 0
+        acertos = 0
 
         if resp_dadas.strip():
-            acertos = 0
             for i, q in enumerate(gabarito):
                 descritor = q["descritor"]
                 if descritor not in acertos_descritores:
@@ -5768,17 +6231,23 @@ def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
                 if letra_aluno == q["resposta_correta"].upper():
                     acertos += 1
                     acertos_descritores[descritor]["corretas"] += 1
-            nota_calculada = round((acertos / qtd_q) * 10, 1)
+            nota_calculada = round((acertos / qtd_q) * 10, 1) if qtd_q else 0
 
         if resp_dadas.strip() or nota_manual:
+            nota_final = float(nota_manual) if nota_manual else nota_calculada
             av["notas_alunos"][aluno] = {
                 "respostas_dadas": resp_dadas,
-                "nota_final": float(nota_manual) if nota_manual else nota_calculada,
+                "nota_final": nota_final,
                 "descritores": acertos_descritores
             }
-    avaliacoes[idx] = av
-    salvar_avaliacoes(avaliacoes)
-    st.success("Correção automática finalizada e notas salvas!")
+            resultados[aluno] = {"acertos": acertos, "nota": nota_final,
+                                 "respostas": resp_dadas}
+    if salvar:
+        avaliacoes[idx] = av
+        salvar_avaliacoes(avaliacoes)
+    if mostrar_msg:
+        st.success("Correção automática finalizada e notas salvas!")
+    return resultados
 
 # =====================================================================
 # 15. ESTATISTICAS POR DESCRITOR
