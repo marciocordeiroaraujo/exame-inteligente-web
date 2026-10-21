@@ -5660,21 +5660,36 @@ def tela_notas():
                 else:
                     st.caption("Modo detalhado: clique na alternativa marcada por cada aluno.")
 
-                if modo == "Rapido (Texto)":
-                    for aluno in alunos:
-                        st.markdown(f'<div class="corr-aluno">{esc(aluno)}</div>',
+                # ---- lista compacta: clique no aluno para editar as respostas ----
+                chave_edit = f"corr_editando_{aid}"
+                editando = st.session_state.get(chave_edit)
+                if editando and editando not in alunos:
+                    editando = None
+                    st.session_state.pop(chave_edit, None)
+
+                for aluno in alunos:
+                    nota = av["notas_alunos"].get(aluno, {}).get("nota_final")
+                    rotulo = aluno if nota is None else f"{aluno}   |   Nota: {nota:.1f}"
+                    if st.button(rotulo, key=f"corr_aluno_btn_{aid}_{aluno}",
+                                 width="stretch",
+                                 type="primary" if editando == aluno else "secondary"):
+                        st.session_state[chave_edit] = None if editando == aluno else aluno
+                        st.rerun()
+
+                # ---- detalhe (gabarito do aluno) apenas do aluno selecionado ----
+                if editando:
+                    with st.container(key=f"corr_aluno_card_{aid}_{editando}"):
+                        st.markdown(f'<div class="corr-aluno">{esc(editando)}</div>',
                                     unsafe_allow_html=True)
-                        dados_exist = av["notas_alunos"].get(aluno, {})
-                        st.text_input(
-                            f"Respostas de {aluno} ({qtd_q} questões)",
-                            value=dados_exist.get("respostas_dadas", ""),
-                            key=f"corr_resp_{aid}_{aluno}", label_visibility="collapsed")
-                else:
-                    for aluno in alunos:
-                        with st.container(key=f"corr_aluno_card_{aid}_{aluno}"):
-                            st.markdown(f'<div class="corr-aluno">{esc(aluno)}</div>',
-                                        unsafe_allow_html=True)
-                            antiga = resp_atuais.get(aluno, "")
+                        antiga = resp_atuais.get(editando, "")
+                        if modo == "Rapido (Texto)":
+                            dados_exist = av["notas_alunos"].get(editando, {})
+                            st.text_input(
+                                f"Respostas de {editando} ({qtd_q} questões)",
+                                value=dados_exist.get("respostas_dadas", ""),
+                                key=f"corr_resp_{aid}_{editando}",
+                                label_visibility="collapsed")
+                        else:
                             for i in range(0, qtd_q, 3):
                                 cols = st.columns(3)
                                 for j in range(3):
@@ -5688,31 +5703,44 @@ def tela_notas():
                                             f'<div class="gab-q">Q<b>{qi + 1:02d}</b></div>',
                                             unsafe_allow_html=True)
                                         sub = r_let.columns(len(LETRAS))
-                                        chave_b = f"corr_{aid}_{aluno}_q{qi}"
+                                        chave_b = f"corr_{aid}_{editando}_q{qi}"
                                         atual = st.session_state.get(
                                             chave_b, antiga[qi] if qi < len(antiga) else "")
                                         for li, l in enumerate(LETRAS):
                                             if sub[li].button(
-                                                    l, key=f"corr_b_{aid}_{aluno}_{qi}_{l}",
+                                                    l,
+                                                    key=f"corr_b_{aid}_{editando}_{qi}_{l}",
                                                     type="primary" if atual == l else "secondary"):
                                                 st.session_state[chave_b] = l
                                                 st.rerun()
 
                 if st.button("Processar Correção Automática e Salvar", type="primary",
-                             use_container_width=True, key="corr_salvar"):
+                             width="stretch", key="corr_salvar"):
                     dados_entrada = []
                     for aluno in alunos:
                         if modo == "Rapido (Texto)":
-                            resp = st.session_state.get(f"corr_resp_{aid}_{aluno}", "")
-                            dados_entrada.append((aluno, "rapido", resp, "", None))
+                            chave = f"corr_resp_{aid}_{aluno}"
+                            if chave in st.session_state:
+                                dados_entrada.append((aluno, "rapido",
+                                                      st.session_state.get(chave, ""),
+                                                      "", None))
                         else:
                             antiga = resp_atuais.get(aluno, "")
-                            letras = [st.session_state.get(
-                                f"corr_{aid}_{aluno}_q{qi}",
-                                antiga[qi] if qi < len(antiga) else "")
-                                for qi in range(qtd_q)]
-                            dados_entrada.append((aluno, "detalhado", None, "", letras))
-                    processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx)
+                            chaves = [f"corr_{aid}_{aluno}_q{qi}" for qi in range(qtd_q)]
+                            if any(c in st.session_state for c in chaves):
+                                letras = []
+                                for qi in range(qtd_q):
+                                    c = chaves[qi]
+                                    if c in st.session_state:
+                                        letras.append(st.session_state.get(c, ""))
+                                    else:
+                                        letras.append(antiga[qi] if qi < len(antiga) else "")
+                                dados_entrada.append((aluno, "detalhado", None, "", letras))
+                    if not dados_entrada:
+                        st.warning("Clique no nome de um aluno e marque as respostas "
+                                   "antes de salvar.")
+                    else:
+                        processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx)
 
     # ---------------- TAB 3: ESTATISTICAS ----------------
     with tab_stats:
@@ -5739,6 +5767,42 @@ def _chave_nome(nome):
 
 def _tokens_nome(chave):
     return [t for t in chave.split() if len(t) >= 2]
+
+
+# palavras que NUNCA sao nome de aluno (titulos, cabecalhos, legenda da planilha)
+_PALAVRAS_NAO_NOME = {
+    "questoes", "questao", "question", "questions", "item", "itens", "gabarito",
+    "resposta", "respostas", "chave", "total", "totais", "media", "obs",
+    "observacao", "observacoes", "nota", "notas", "acerto", "acertos", "ponto",
+    "pontos", "pontuacao", "turma", "turmas", "escola", "disciplina", "materia",
+    "professor", "prova", "avaliacao", "teste", "nome", "nomes", "aluno", "alunos",
+    "estudante", "estudantes", "tipo", "valor", "descricao", "descritor",
+    "descritores", "nivel", "situacao", "status", "data", "hora", "vagas",
+    "frequencia", "presenca", "falta", "carga", "horas", "aulas", "unidade",
+    "matricula", "numero", "codigo", "opcao", "alternativa", "alternativas",
+    "opcoes", "preenchimento", "conteudo", "assunto", "capitulo", "modulo",
+}
+
+
+def _parece_nome_aluno(texto):
+    """True somente se a celula da planilha parecer um nome de aluno.
+    Descarta cabecalhos, legendas e sequencias como '34QUESTÕES' ou 'Item (A)'."""
+    t = _sem_acento(str(texto or "")).strip()
+    if not t or len(t) < 3:
+        return False
+    if t[0].isdigit():
+        return False
+    if re.search(r"\(\s*[A-Fa-f]\s*\)", t):
+        return False
+    if re.search(r"\b[A-F]{3,6}\b", t) and " " not in t:
+        return False
+    palavras = [p for p in re.split(r"[^A-Za-z0-9]+", t) if p]
+    if not palavras:
+        return False
+    for p in palavras:
+        if p.lower() in _PALAVRAS_NAO_NOME:
+            return False
+    return True
 
 
 def _indice_alunos(dados_turmas):
@@ -5918,6 +5982,7 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
     # ---------- respostas dos alunos + casamento com o site ----------
     indice = _indice_alunos(dados_turmas)
     linhas = []
+    ignoradas = []
     for r in range(start_row + 1, (ws.max_row or start_row) + 1):
         nome = ws.cell(row=r, column=name_col).value
         if nome is None or str(nome).strip() == "":
@@ -5926,6 +5991,10 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
         rot = _sem_acento(nome).upper()
         if ("GABARITO" in rot or rot in ("RESPOSTA", "RESPOSTAS", "CHAVE",
                                          "TOTAL", "MEDIA", "OBS", "OBSERVACOES")):
+            continue
+        # descarta linhas que nao sao nome de aluno (ex.: "34QUESTÕES", "Item (A)")
+        if not _parece_nome_aluno(nome):
+            ignoradas.append(nome)
             continue
         respostas = []
         for c in colunas:
@@ -5941,7 +6010,7 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
         return {"erro": "Nenhum dado de aluno encontrado abaixo do cabecalho 'NOME DO ALUNO'."}
 
     return {"erro": None, "sheet": ws.title, "qtd_questoes": len(colunas),
-            "gabarito": gabarito, "linhas": linhas,
+            "gabarito": gabarito, "linhas": linhas, "ignoradas": ignoradas,
             "turmas_detectadas": sorted({l["turma"] for l in linhas if l["turma"]})}
 
 
@@ -6029,7 +6098,8 @@ def _criar_avaliacoes_da_planilha(analise, avaliacoes, dados_turmas, titulo, dat
     if not turmas_sel:
         return None, None, "Selecione pelo menos uma turma."
 
-    num_alt = max(4, max(ord(l) - 64 for l in letras) + 1)
+    # nº de alternativas = letra mais alta do gabarito (A=1 ... E=5), minimo 4
+    num_alt = max(4, max(ord(l) - 64 for l in letras))
     num_alt = min(6, num_alt)
     data_av = (data or "").strip() or datetime.now().strftime("%d/%m/%Y")
     titulo_av = (titulo or "").strip() or "Avaliacao importada"
@@ -6144,15 +6214,21 @@ def _painel_importar_planilha(avaliacoes, dados_turmas, av_atual, idx_atual):
 
         ident = [l for l in analise["linhas"] if l["nome_oficial"]]
         nao_ident = [l for l in analise["linhas"] if not l["nome_oficial"]]
-        m1, m2, m3, m4 = st.columns(4)
+        ignoradas = analise.get("ignoradas", [])
+        m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Questões", analise["qtd_questoes"])
-        m2.metric("Linhas na planilha", len(analise["linhas"]))
+        m2.metric("Linhas na planilha", len(analise["linhas"]) + len(ignoradas))
         m3.metric("Identificados no site", len(ident))
         m4.metric("Não identificados", len(nao_ident))
+        m5.metric("Linhas ignoradas", len(ignoradas))
         if analise["gabarito"]:
             st.success(f"Gabarito encontrado na planilha: `{analise['gabarito']}`")
         else:
             st.warning("Gabarito não encontrado na planilha - informe o gabarito abaixo.")
+        if ignoradas:
+            with st.expander(f"Ver {len(ignoradas)} linha(s) ignorada(s) "
+                             f"(não parecem nome de aluno)"):
+                st.caption(", ".join(ignoradas[:60]))
 
         if destino == "Criar nova avaliação":
             c1, c2 = st.columns([2.2, 1])
