@@ -5660,7 +5660,7 @@ def tela_notas():
                 else:
                     st.caption("Modo detalhado: clique na alternativa marcada por cada aluno.")
 
-                # ---- lista compacta: clique no aluno para editar as respostas ----
+                # ---- lista compacta: clique no aluno para ver/corrigir o gabarito ----
                 chave_edit = f"corr_editando_{aid}"
                 editando = st.session_state.get(chave_edit)
                 if editando and editando not in alunos:
@@ -5673,46 +5673,53 @@ def tela_notas():
                     if st.button(rotulo, key=f"corr_aluno_btn_{aid}_{aluno}",
                                  width="stretch",
                                  type="primary" if editando == aluno else "secondary"):
-                        st.session_state[chave_edit] = None if editando == aluno else aluno
+                        # clique simples ou duplo sempre ABRE o aluno (nao fecha)
+                        st.session_state[chave_edit] = aluno
                         st.rerun()
 
-                # ---- detalhe (gabarito do aluno) apenas do aluno selecionado ----
-                if editando:
-                    with st.container(key=f"corr_aluno_card_{aid}_{editando}"):
-                        st.markdown(f'<div class="corr-aluno">{esc(editando)}</div>',
-                                    unsafe_allow_html=True)
-                        antiga = resp_atuais.get(editando, "")
-                        if modo == "Rapido (Texto)":
-                            dados_exist = av["notas_alunos"].get(editando, {})
-                            st.text_input(
-                                f"Respostas de {editando} ({qtd_q} questões)",
-                                value=dados_exist.get("respostas_dadas", ""),
-                                key=f"corr_resp_{aid}_{editando}",
-                                label_visibility="collapsed")
-                        else:
-                            for i in range(0, qtd_q, 3):
-                                cols = st.columns(3)
-                                for j in range(3):
-                                    qi = i + j
-                                    if qi >= qtd_q:
-                                        break
-                                    with cols[j]:
-                                        r_lbl, r_let = st.columns([1, 3.6],
-                                                                  vertical_alignment="center")
-                                        r_lbl.markdown(
-                                            f'<div class="gab-q">Q<b>{qi + 1:02d}</b></div>',
-                                            unsafe_allow_html=True)
-                                        sub = r_let.columns(len(LETRAS))
-                                        chave_b = f"corr_{aid}_{editando}_q{qi}"
-                                        atual = st.session_state.get(
-                                            chave_b, antiga[qi] if qi < len(antiga) else "")
-                                        for li, l in enumerate(LETRAS):
-                                            if sub[li].button(
-                                                    l,
-                                                    key=f"corr_b_{aid}_{editando}_{qi}_{l}",
-                                                    type="primary" if atual == l else "secondary"):
-                                                st.session_state[chave_b] = l
-                                                st.rerun()
+                    # ---- detalhe (gabarito do aluno) logo abaixo do nome clicado ----
+                    if editando == aluno:
+                        with st.container(key=f"corr_aluno_card_{aid}_{aluno}"):
+                            cab_l, cab_r = st.columns([6, 1])
+                            cab_l.markdown(
+                                f'<div class="corr-aluno">{esc(aluno)}</div>',
+                                unsafe_allow_html=True)
+                            if cab_r.button("✕ Fechar", key=f"corr_fechar_{aid}_{aluno}",
+                                            width="stretch"):
+                                st.session_state[chave_edit] = None
+                                st.rerun()
+                            antiga = resp_atuais.get(aluno, "")
+                            if modo == "Rapido (Texto)":
+                                dados_exist = av["notas_alunos"].get(aluno, {})
+                                st.text_input(
+                                    f"Respostas de {aluno} ({qtd_q} questões)",
+                                    value=dados_exist.get("respostas_dadas", ""),
+                                    key=f"corr_resp_{aid}_{aluno}",
+                                    label_visibility="collapsed")
+                            else:
+                                for i in range(0, qtd_q, 3):
+                                    cols = st.columns(3)
+                                    for j in range(3):
+                                        qi = i + j
+                                        if qi >= qtd_q:
+                                            break
+                                        with cols[j]:
+                                            r_lbl, r_let = st.columns(
+                                                [1, 3.6], vertical_alignment="center")
+                                            r_lbl.markdown(
+                                                f'<div class="gab-q">Q<b>{qi + 1:02d}</b></div>',
+                                                unsafe_allow_html=True)
+                                            sub = r_let.columns(len(LETRAS))
+                                            chave_b = f"corr_{aid}_{aluno}_q{qi}"
+                                            atual = st.session_state.get(
+                                                chave_b, antiga[qi] if qi < len(antiga) else "")
+                                            for li, l in enumerate(LETRAS):
+                                                if sub[li].button(
+                                                        l,
+                                                        key=f"corr_b_{aid}_{aluno}_{qi}_{l}",
+                                                        type="primary" if atual == l else "secondary"):
+                                                    st.session_state[chave_b] = l
+                                                    st.rerun()
 
                 if st.button("Processar Correção Automática e Salvar", type="primary",
                              width="stretch", key="corr_salvar"):
