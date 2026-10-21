@@ -6004,6 +6004,24 @@ def _gabarito_de_aba_propria(wb):
     return ""
 
 
+def _descritores_da_aba(ws, start_row, name_col, colunas):
+    """Procura a linha DESCRITOR / HABILIDADE dentro da aba."""
+    for r in range(1, (ws.max_row or 1) + 1):
+        rot = ws.cell(row=r, column=name_col).value
+        if rot is None:
+            continue
+        rot = _sem_acento(str(rot)).upper()
+        if ("DESCRITOR" in rot or "DESCRITORES" in rot or "HABILIDADE" in rot
+                or "COMPETENCIA" in rot):
+            lista = []
+            for c in colunas:
+                v = ws.cell(row=r, column=c).value
+                lista.append(str(v).strip() if v is not None else "")
+            if any(l.strip() for l in lista):
+                return lista
+    return []
+
+
 def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
     """Le a planilha (TODAS as abas), localiza 'NOME DO ALUNO', as colunas de
     questoes e o gabarito, e casa cada aluno com o cadastro do site."""
@@ -6029,6 +6047,8 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
     abas_sem_ancora = []
     abas_processadas = []
     gabaritos = {}
+    descritores_abas = {}
+    descritores_global = []
 
     for sn in folhas:
         ws = wb[sn]
@@ -6064,6 +6084,12 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
             gabaritos[sn] = gab_aba
             if not gabarito_global:
                 gabarito_global = gab_aba
+
+        desc_aba = _descritores_da_aba(ws, start_row, name_col, colunas)
+        if desc_aba:
+            descritores_abas[sn] = desc_aba
+            if not descritores_global:
+                descritores_global = desc_aba
 
         for r in range(start_row + 1, (ws.max_row or start_row) + 1):
             nome = ws.cell(row=r, column=name_col).value
@@ -6110,18 +6136,20 @@ def _analisar_planilha_excel(arquivo, dados_turmas, turma_preferida=""):
             "abas": abas_processadas, "abas_sem_ancora": abas_sem_ancora,
             "qtd_questoes": max([len(l["respostas"]) for l in linhas], default=0),
             "gabarito": gabarito_global, "gabaritos_abas": gabaritos,
+            "descritores": descritores_global, "descritores_abas": descritores_abas,
             "linhas": linhas, "ignoradas": ignoradas,
             "turmas_detectadas": sorted({l["turma"] for l in linhas if l["turma"]})}
 
 
-def _gabarito_avaliacao(gabarito_texto, descritores_texto):
-    """Monta o gabarito (lista de questoes) a partir do texto digitado."""
+def _gabarito_avaliacao(gabarito_texto, descritores_lista=None):
+    """Monta o gabarito (lista de questoes) a partir do gabarito detectado
+    na planilha (ou digitado) e dos descritores automaticos."""
     letras = [c for c in str(gabarito_texto or "").upper() if c.isalpha()]
     if not letras:
-        return None, None, "Informe o gabarito (uma letra por questao, ex.: ABCDAB...)."
-    numeros = re.findall(r"\d+", str(descritores_texto or ""))
-    if len(numeros) == len(letras):
-        descritores = [resolver_descritor(n) for n in numeros]
+        return None, None, "Gabarito nao encontrado na planilha. Informe as letras " \
+                           "do gabarito (ex.: ABCDAB...) para corrigir as respostas."
+    if descritores_lista and len(descritores_lista) == len(letras):
+        descritores = [resolver_descritor(d) for d in descritores_lista]
     else:
         descritores = ["Sem Descritor"] * len(letras)
     gabarito = [{"questao": i + 1, "resposta_correta": l, "descritor": d}
@@ -6191,9 +6219,10 @@ def processar_planilha_notas_excel(arquivo, av, avaliacoes, idx_av, dados_turmas
 
 
 def _criar_avaliacoes_da_planilha(analise, avaliacoes, dados_turmas, titulo, data,
-                                  gabarito_texto, descritores_texto, turmas_sel):
+                                  gabarito_texto, turmas_sel):
     """Cria uma avaliacao por turma e lanca as notas dos alunos de cada uma."""
-    gabarito, letras, erro = _gabarito_avaliacao(gabarito_texto, descritores_texto)
+    gabarito, letras, erro = _gabarito_avaliacao(
+        gabarito_texto, analise.get("descritores"))
     if erro:
         return None, None, erro
     if not turmas_sel:
@@ -6333,12 +6362,17 @@ def _painel_importar_planilha(avaliacoes, dados_turmas, av_atual, idx_atual):
                        + ", ".join(analise["abas_sem_ancora"]))
         if analise["gabarito"]:
             st.success(f"Gabarito encontrado na planilha: `{analise['gabarito']}`")
-        else:
-            st.warning("Gabarito não encontrado na planilha - informe o gabarito abaixo.")
         gab_abas = analise.get("gabaritos_abas", {})
         if len(set(gab_abas.values())) > 1:
             st.warning("Atenção: as abas da planilha têm gabaritos diferentes. "
                        "Será usado o primeiro encontrado.")
+        desc_abas = analise.get("descritores_abas", {})
+        if desc_abas:
+            descs = [resolver_descritor(d) for d in analise.get("descritores", [])]
+            if descs and any(d != "Sem Descritor" for d in descs):
+                st.success("Descritores encontrados na planilha: "
+                           + ", ".join(f"Q{i + 1}: {d}" for i, d in enumerate(descs)
+                                       if d != "Sem Descritor"))
         if ignoradas:
             with st.expander(f"Ver {len(ignoradas)} linha(s) ignorada(s) "
                              f"(não parecem nome de aluno)"):
@@ -6413,12 +6447,15 @@ def _painel_importar_planilha(avaliacoes, dados_turmas, av_atual, idx_atual):
                                    key="imp_titulo")
             data = c2.text_input("Data (dd/mm/aaaa)",
                                  value=datetime.now().strftime("%d/%m/%Y"), key="imp_data")
-            gab_texto = st.text_input("Gabarito (uma letra por questão)",
-                                      value=analise["gabarito"],
-                                      help="Ex.: ABCDAB...", key="imp_gabarito")
-            desc_texto = st.text_input("Descritores por questão (opcional)", value="",
-                                       help="Ex.: 1 1 2 2 3 (um número por questão)",
-                                       key="imp_desc")
+            if analise["gabarito"]:
+                gab_texto = analise["gabarito"]
+            else:
+                # so aparece se a planilha NAO tiver gabarito (necessario p/ corrigir)
+                st.warning("A planilha não tem gabarito. Informe as letras para "
+                           "que as respostas possam ser corrigidas:")
+                gab_texto = st.text_input("Gabarito (uma letra por questão)",
+                                          value="", help="Ex.: ABCDAB...",
+                                          key="imp_gabarito")
             turmas_det = analise["turmas_detectadas"]
             turmas_sel = st.multiselect("Turmas que farão a avaliação", turmas_det,
                                         default=turmas_det, key="imp_turmas")
@@ -6426,7 +6463,7 @@ def _painel_importar_planilha(avaliacoes, dados_turmas, av_atual, idx_atual):
                          width="stretch", key="imp_btn_criar"):
                 criadas, resumo, erro = _criar_avaliacoes_da_planilha(
                     analise, avaliacoes, dados_turmas, titulo, data, gab_texto,
-                    desc_texto, turmas_sel)
+                    turmas_sel)
                 if erro:
                     st.error(erro)
                 else:
