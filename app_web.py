@@ -5575,13 +5575,24 @@ def tela_notas():
             st.info("Nenhuma avaliação cadastrada.")
         else:
             titulos_av = [f"[{a['turma']}] {a['titulo']} ({a['data']})" for a in avaliacoes]
-            c1, c2 = st.columns([2.5, 1.5])
+            
+            c1, c2, c3 = st.columns([2.5, 1.5, 1])
             av_escolhida = c1.selectbox("Selecione a avaliação", titulos_av, key="av_corrigir")
             modo = c2.radio("Modo de correcao", ["Rapido (Texto)", "Detalhado (Blocos)"],
                             index=1, horizontal=True)
-
+            
             idx = titulos_av.index(av_escolhida)
             av = avaliacoes[idx]
+            
+            with c3.popover("📥 Importar Planilha", use_container_width=True):
+                st.markdown("**Corrigir via Excel**")
+                st.caption(f"Arraste a planilha da turma **{av['turma']}** para lançar todas as respostas.")
+                arquivo_notas = st.file_uploader("", type=["xlsx", "xls"], key="imp_notas_file")
+                if arquivo_notas is not None:
+                    if st.button("Processar Planilha", type="primary", use_container_width=True):
+                        processar_planilha_notas_excel(arquivo_notas, av, avaliacoes, idx, dados_turmas)
+                        st.rerun()
+
             aid = av.get("id", idx)
             turma = av["turma"]
             alunos = sorted(dados_turmas.get(turma, []))
@@ -5658,6 +5669,80 @@ def tela_notas():
     # ---------------- TAB 3: ESTATISTICAS ----------------
     with tab_stats:
         montar_aba_stats(avaliacoes)
+
+def processar_planilha_notas_excel(arquivo, av, avaliacoes, idx_av, dados_turmas):
+    import io
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(arquivo.read()), data_only=True)
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
+        return
+        
+    turma_av = av.get("turma", "")
+    gabarito = av.get("gabarito", [])
+    qtd_q = len(gabarito)
+    
+    # Tenta achar a aba com o nome da turma, senão pega a aba ativa
+    sheet_name = None
+    for sn in wb.sheetnames:
+        if turma_av.lower() in sn.lower() or sn.lower() in turma_av.lower():
+            sheet_name = sn
+            break
+            
+    ws = wb[sheet_name] if sheet_name else wb.active
+        
+    # Localiza a âncora do cabeçalho "NOME DO ALUNO"
+    start_row = None
+    name_col = None
+    for row in ws.iter_rows(min_row=1, max_row=30):
+        for cell in row:
+            if str(cell.value).strip().upper() == "NOME DO ALUNO":
+                start_row = cell.row
+                name_col = cell.column
+                break
+        if start_row:
+            break
+            
+    if not start_row:
+        st.error("Coluna 'NOME DO ALUNO' não encontrada na planilha inserida.")
+        return
+        
+    alunos_cadastrados = {normalizar_nome(a).lower(): a for a in dados_turmas.get(turma_av, [])}
+    dados_entrada = []
+    alunos_importados = 0
+    
+    for row in ws.iter_rows(min_row=start_row + 1, max_row=ws.max_row):
+        nome_excel = row[name_col - 1].value
+        if not nome_excel or str(nome_excel).strip() == "":
+            continue
+            
+        nome_norm = normalizar_nome(str(nome_excel)).lower()
+        nome_oficial = alunos_cadastrados.get(nome_norm, str(nome_excel).strip())
+        
+        respostas_aluno = []
+        for c in range(name_col, len(row)):
+            header_val = ws.cell(row=start_row, column=c + 1).value
+            if isinstance(header_val, (int, float)) or (isinstance(header_val, str) and header_val.replace('.', '', 1).isdigit()):
+                ans = str(row[c].value).strip().upper() if row[c].value else " "
+                if ans not in ["A", "B", "C", "D", "E"]:
+                    ans = " "
+                respostas_aluno.append(ans)
+                
+                if len(respostas_aluno) == qtd_q:
+                    break
+                    
+        resp_txt = "".join(respostas_aluno).ljust(qtd_q, " ")
+        dados_entrada.append((nome_oficial, "rapido", resp_txt, "", None))
+        alunos_importados += 1
+        
+    if alunos_importados == 0:
+        st.warning("Nenhum dado de aluno encontrado abaixo do cabeçalho.")
+        return
+        
+    processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx_av)
+    st.success(f"Sucesso! Notas e descritores de {alunos_importados} alunos importados automaticamente da planilha.")
+
 
 # ---------------- correcao ----------------
 def processar_correcao(av, dados_entrada, gabarito, avaliacoes, idx):
